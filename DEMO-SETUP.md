@@ -29,16 +29,15 @@
 - Select iPhone simulator
 - Click Run button (▶️)
 
-#### **Step 3: Launch Android Emulator (EXACT METHOD)**
-- **Direct command method** (DO NOT use Android Studio):
+#### **Step 3: Launch Android Emulator (SIMPLEST METHOD)**
+- **Claude handles Android** - much simpler than multiple terminals
+- **Tell Claude**: "Handle Android setup"
+- **Claude runs**:
   ```bash
-  emulator -avd TechTrackerSmall &
-  ```
-- **Wait for emulator to boot** (about 2 minutes)
-- **Connect to Metro**:
-  ```bash
+  adb shell pm clear com.fieldtracker
   npx react-native run-android
   ```
+- **Result**: Android connects to your Metro, shows login page
 
 ### **Demo Login Credentials:**
 - **Technician**: 
@@ -100,13 +99,10 @@ open ios/FieldTracker.xcworkspace
 # Click Run (▶️) in Xcode
 ```
 
-**Step 4: Start Android**
-```bash
-emulator -avd TechTrackerSmall &
-# Wait for boot, then:
-adb shell pm clear com.fieldtracker
-npx react-native run-android
-```
+**Step 4: Start Android (Claude Handles)**
+- **Tell Claude**: "Handle Android setup"
+- **Claude clears cache and connects Android to Metro**
+- **Much simpler than multiple terminals**
 
 **Expected Metro Result:**
 ```
