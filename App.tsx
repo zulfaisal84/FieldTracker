@@ -5,22 +5,41 @@
 
 import React from 'react';
 import { StatusBar, StyleSheet, View, Text } from 'react-native';
-import { AppProvider } from './src/context/AppContext';
+import { AppProvider, useApp } from './src/context/AppContext';
 import { Colors } from './src/styles/colors';
+import LoginScreen from './src/screens/LoginScreen';
+
+const AppContent = () => {
+  const { isLoggedIn, currentUser } = useApp();
+
+  if (!isLoggedIn) {
+    return <LoginScreen onLoginSuccess={() => {}} />;
+  }
+
+  // Temporary dashboard after login
+  return (
+    <View style={styles.container}>
+      <StatusBar barStyle="dark-content" backgroundColor={Colors.white} />
+      
+      <View style={styles.centerContent}>
+        <Text style={styles.title}>
+          Welcome, {currentUser?.realName}!
+        </Text>
+        <Text style={styles.subtitle}>
+          {currentUser?.role === 'tech' ? '👷 Technician Dashboard' : '👔 Manager Dashboard'}
+        </Text>
+        <Text style={styles.info}>
+          Logged in as: {currentUser?.username}
+        </Text>
+      </View>
+    </View>
+  );
+};
 
 function App() {
   return (
     <AppProvider>
-      <View style={styles.container}>
-        <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
-        
-        {/* Temporary Demo Screen */}
-        <View style={styles.centerContent}>
-          <Text style={styles.title}>🚀 Field Tracker</Text>
-          <Text style={styles.subtitle}>Demo Ready - Context Setup Complete!</Text>
-          <Text style={styles.info}>Cross-simulator sync is now active</Text>
-        </View>
-      </View>
+      <AppContent />
     </AppProvider>
   );
 }
