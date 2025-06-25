@@ -1,8 +1,8 @@
 # Field Tracker - Demo Setup Guide
 
-## 🎯 **DEMO-READY METHOD** (Consistent & Reliable)
+## 🎯 **DEMO-READY METHODS** (Multiple Backup Plans)
 
-### **For Client Demo Presentation - Follow These Exact Steps:**
+### **PLAN A: Claude Handles Both Platforms (Most Reliable)**
 
 #### **Step 1: Start Metro Bundler (CRITICAL - YOUR OWN TERMINAL)**
 1. **NEVER run Metro in Claude Code terminal** - it won't be visible during demo
@@ -21,6 +21,15 @@
    ```
 6. **Keep that Metro terminal visible** during your demo presentation
 
+#### **Step 2: Launch Both Simulators**
+- **Tell Claude**: "Handle both iOS and Android"
+- **Claude runs complete setup automatically**
+- **Result**: Both simulators connect to your Metro, show login pages
+
+### **PLAN B: Claude Handles Android, You Handle iOS**
+
+#### **Step 1: Start Metro Bundler** (same as Plan A)
+
 #### **Step 2: Launch iOS Simulator**
 - Open Xcode: 
   ```bash
@@ -29,8 +38,7 @@
 - Select iPhone simulator
 - Click Run button (▶️)
 
-#### **Step 3: Launch Android Emulator (SIMPLEST METHOD)**
-- **Claude handles Android** - much simpler than multiple terminals
+#### **Step 3: Launch Android Emulator**
 - **Tell Claude**: "Handle Android setup"
 - **Claude runs**:
   ```bash
@@ -38,6 +46,20 @@
   npx react-native run-android
   ```
 - **Result**: Android connects to your Metro, shows login page
+
+### **PLAN C: Manual Control (Backup Option)**
+
+#### **Step 1: Start Metro Bundler** (same as Plan A)
+
+#### **Step 2: Launch iOS Manually**
+- Open Xcode: `open ios/FieldTracker.xcworkspace`
+- Click Run button (▶️)
+
+#### **Step 3: Launch Android Manually**
+- Open second terminal window
+- Navigate to project: `cd /Users/muhamadzulfaisalsallehmustafa/FieldTracker`
+- Clear Android cache: `adb shell pm clear com.fieldtracker`
+- Run Android: `npx react-native run-android`
 
 ### **Demo Login Credentials:**
 - **Technician**: 
