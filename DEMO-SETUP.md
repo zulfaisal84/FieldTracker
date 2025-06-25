@@ -23,7 +23,13 @@
 
 #### **Step 2: Launch Both Simulators**
 - **Tell Claude**: "Handle both iOS and Android"
-- **Claude runs complete setup automatically**
+- **Claude automatically**:
+  - Starts Android emulator
+  - Installs and runs Android app
+  - Opens Xcode and builds iOS app
+- **You handle iOS popup** (15 seconds):
+  - Click "OK" on "Unable to boot device" popup
+  - Tap Field Tracker app icon on iOS simulator
 - **Result**: Both simulators connect to your Metro, show login pages
 
 ### **PLAN B: Claude Handles Android, You Handle iOS**
