@@ -6,6 +6,7 @@ import {
   StyleSheet,
   Alert,
   StatusBar,
+  Platform,
 } from 'react-native';
 import { Colors } from '../styles/colors';
 import { useApp } from '../context/AppContext';
@@ -169,8 +170,8 @@ const styles = StyleSheet.create({
   },
   header: {
     backgroundColor: Colors.boss,
-    paddingTop: 50,
-    paddingBottom: 8,
+    paddingTop: Platform.OS === 'android' ? 30 : 50,
+    paddingBottom: Platform.OS === 'android' ? 6 : 8,
     paddingHorizontal: 20,
     alignItems: 'center',
   },

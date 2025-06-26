@@ -19,6 +19,7 @@ interface AppContextType extends AppState {
   submitJob: (jobId: string) => void;
   approveJob: (jobId: string) => void;
   rejectJob: (jobId: string, reason: string) => void;
+  cancelJob: (jobId: string) => void;
   
   // Task Management
   addTask: (jobId: string, description: string, date: string, startTime: string, endTime: string) => string;
@@ -421,6 +422,31 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }
   };
 
+  const cancelJob = (jobId: string) => {
+    const job = jobs[jobId];
+    if (job) {
+      // Remove the job completely
+      setJobs(prev => {
+        const newJobs = { ...prev };
+        delete newJobs[jobId];
+        return newJobs;
+      });
+
+      // Notify all assigned techs
+      job.assignedTechs.forEach(techId => {
+        addNotification(
+          techId,
+          'Job Cancelled',
+          `${job.title} has been cancelled by management`,
+          'job_cancelled',
+          jobId
+        );
+      });
+
+      Alert.alert('Job Cancelled', 'Job has been cancelled and technicians have been notified');
+    }
+  };
+
   // Task Management
   const addTask = (jobId: string, description: string, date: string, startTime: string, endTime: string): string => {
     const taskId = `task_${Date.now()}`;
@@ -512,6 +538,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     submitJob,
     approveJob,
     rejectJob,
+    cancelJob,
     addTask,
     updateTask,
     addNotification,

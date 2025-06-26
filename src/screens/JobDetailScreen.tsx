@@ -18,7 +18,7 @@ interface JobDetailScreenProps {
 }
 
 const JobDetailScreen: React.FC<JobDetailScreenProps> = ({ jobId, onBack }) => {
-  const { currentUser, jobs, startJob, completeJob, submitJob } = useApp();
+  const { currentUser, jobs, startJob, completeJob, submitJob, cancelJob } = useApp();
   
   const job = jobs[jobId];
 
@@ -277,7 +277,7 @@ const JobDetailScreen: React.FC<JobDetailScreenProps> = ({ jobId, onBack }) => {
           )}
         </View>
 
-        {/* Action Button */}
+        {/* Action Buttons */}
         {actionButton && (
           <View style={styles.actionSection}>
             <TouchableOpacity
@@ -286,6 +286,32 @@ const JobDetailScreen: React.FC<JobDetailScreenProps> = ({ jobId, onBack }) => {
             >
               <Text style={styles.actionButtonText}>{actionButton.text}</Text>
             </TouchableOpacity>
+            
+            {/* Cancel Job Button - Only for managers on In Progress and Submitted jobs */}
+            {currentUser?.role === 'boss' && (job.status === 'In Progress' || job.status === 'Submitted') && (
+              <TouchableOpacity
+                style={[styles.actionButton, styles.cancelButton]}
+                onPress={() => {
+                  Alert.alert(
+                    'Cancel Job',
+                    'Are you sure you want to cancel this job? This action cannot be undone.',
+                    [
+                      { text: 'No', style: 'cancel' },
+                      { 
+                        text: 'Yes, Cancel Job', 
+                        style: 'destructive', 
+                        onPress: () => {
+                          cancelJob(jobId);
+                          onBack(); // Go back to job list after cancelling
+                        }
+                      }
+                    ]
+                  );
+                }}
+              >
+                <Text style={styles.actionButtonText}>🗑️ Cancel Job</Text>
+              </TouchableOpacity>
+            )}
           </View>
         )}
 
@@ -492,6 +518,10 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     borderRadius: 12,
     alignItems: 'center',
+    marginBottom: 12,
+  },
+  cancelButton: {
+    backgroundColor: '#DC2626',
   },
   actionButtonText: {
     color: Colors.white,
