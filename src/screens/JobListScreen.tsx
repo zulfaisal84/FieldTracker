@@ -11,16 +11,38 @@ import { Colors } from '../styles/colors';
 import { useApp } from '../context/AppContext';
 import { Job, JobStatus } from '../types';
 
+// Component to render assigned technicians
+const AssignedTechsRow: React.FC<{ job: Job }> = ({ job }) => {
+  const { users } = useApp();
+  
+  return (
+    <View style={styles.detailRowNoIcon}>
+      <View style={styles.techNamesContainer}>
+        {job.assignedTechs.map((techId, index) => {
+          const tech = Object.values(users).find(u => u.id === techId);
+          return (
+            <Text key={techId} style={styles.techName}>
+              👷 {tech?.realName || tech?.username || 'Unknown'}{' '}
+            </Text>
+          );
+        })}
+      </View>
+    </View>
+  );
+};
+
 interface JobListScreenProps {
   onJobPress: (jobId: string) => void;
   onCreateJobPress?: () => void;
   showCreateButton?: boolean;
+  hideHeader?: boolean;
 }
 
 const JobListScreen: React.FC<JobListScreenProps> = ({ 
   onJobPress, 
   onCreateJobPress,
-  showCreateButton = false 
+  showCreateButton = false,
+  hideHeader = false
 }) => {
   const { currentUser, getJobsForUser, getAllJobs } = useApp();
 
@@ -73,34 +95,25 @@ const JobListScreen: React.FC<JobListScreenProps> = ({
       </View>
 
       <View style={styles.jobDetails}>
-        <View style={styles.detailRow}>
-          <Text style={styles.detailIcon}>📍</Text>
-          <Text style={styles.detailText}>{job.siteLocation}</Text>
-        </View>
-        
-        <View style={styles.detailRow}>
-          <Text style={styles.detailIcon}>📅</Text>
-          <Text style={styles.detailText}>
-            {new Date(job.createdAt).toLocaleDateString()}
-          </Text>
-        </View>
-        
-        {currentUser?.role === 'boss' && (
-          <View style={styles.detailRow}>
-            <Text style={styles.detailIcon}>👷</Text>
+        {/* Date and Location side by side */}
+        <View style={styles.detailRowSideBySide}>
+          <View style={styles.detailHalfDate}>
+            <Text style={styles.detailIcon}>📅</Text>
             <Text style={styles.detailText}>
-              {job.assignedTechs.length} tech{job.assignedTechs.length !== 1 ? 's' : ''} assigned
+              {new Date(job.createdAt).toLocaleDateString()}
             </Text>
           </View>
-        )}
-        
-        {job.tasks && job.tasks.length > 0 && (
-          <View style={styles.detailRow}>
-            <Text style={styles.detailIcon}>📝</Text>
-            <Text style={styles.detailText}>
-              {job.tasks.length} task{job.tasks.length !== 1 ? 's' : ''} completed
+          <View style={styles.detailHalf}>
+            <Text style={styles.detailIcon}>📍</Text>
+            <Text style={styles.detailTextTruncated} numberOfLines={1} ellipsizeMode="tail">
+              {job.siteLocation}
             </Text>
           </View>
+        </View>
+        
+        {/* Assigned Technicians with names */}
+        {currentUser?.role === 'boss' && job.assignedTechs.length > 0 && (
+          <AssignedTechsRow job={job} />
         )}
       </View>
 
@@ -133,21 +146,23 @@ const JobListScreen: React.FC<JobListScreenProps> = ({
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor={currentUser?.role === 'boss' ? Colors.boss : Colors.tech} />
       
-      {/* Header */}
-      <View style={[
-        styles.header, 
-        { backgroundColor: currentUser?.role === 'boss' ? Colors.boss : Colors.tech }
-      ]}>
-        <Text style={styles.headerTitle}>
-          {currentUser?.role === 'boss' ? '👔 All Jobs' : '👷 My Jobs'}
-        </Text>
-        <Text style={styles.headerSubtitle}>
-          {currentUser?.role === 'boss' 
-            ? 'Monitor job progress and team activity'
-            : 'Track your assigned work'
-          }
-        </Text>
-      </View>
+      {/* Header - only show if not hidden */}
+      {!hideHeader && (
+        <View style={[
+          styles.header, 
+          { backgroundColor: currentUser?.role === 'boss' ? Colors.boss : Colors.tech }
+        ]}>
+          <Text style={styles.headerTitle}>
+            {currentUser?.role === 'boss' ? '👔 All Jobs' : '👷 My Jobs'}
+          </Text>
+          <Text style={styles.headerSubtitle}>
+            {currentUser?.role === 'boss' 
+              ? 'Monitor job progress and team activity'
+              : 'Track your assigned work'
+            }
+          </Text>
+        </View>
+      )}
 
       {/* Create Job Button - Only for techs or when explicitly shown */}
       {(showCreateButton || currentUser?.role === 'tech') && onCreateJobPress && (
@@ -271,12 +286,47 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 4,
   },
+  detailRowNoIcon: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 4,
+    marginLeft: 0,
+  },
+  detailRowSideBySide: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  detailHalf: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  detailHalfDate: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    width: 120,
+  },
+  techNamesContainer: {
+    flex: 1,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+  },
+  techName: {
+    fontSize: 14,
+    color: Colors.textSecondary,
+  },
   detailIcon: {
     fontSize: 14,
     marginRight: 8,
     width: 20,
   },
   detailText: {
+    fontSize: 14,
+    color: Colors.textSecondary,
+    flex: 1,
+  },
+  detailTextTruncated: {
     fontSize: 14,
     color: Colors.textSecondary,
     flex: 1,

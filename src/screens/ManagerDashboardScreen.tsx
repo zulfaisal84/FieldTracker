@@ -53,6 +53,7 @@ const ManagerDashboardScreen: React.FC = () => {
             onJobPress={handleJobPress}
             onCreateJobPress={handleCreateJob}
             showCreateButton={false}
+            hideHeader={true}
           />
         );
       case 'create':
@@ -106,6 +107,7 @@ const ManagerDashboardScreen: React.FC = () => {
       {activeTab === 'jobs' && (
         <View style={styles.header}>
           <Text style={styles.headerTitle}>Manager Dashboard</Text>
+          <Text style={styles.headerSubtitle}>Monitor job progress and team activity</Text>
         </View>
       )}
 
@@ -168,14 +170,20 @@ const styles = StyleSheet.create({
   header: {
     backgroundColor: Colors.boss,
     paddingTop: 50,
-    paddingBottom: 16,
+    paddingBottom: 8,
     paddingHorizontal: 20,
     alignItems: 'center',
   },
   headerTitle: {
     color: Colors.white,
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: 'bold',
+    marginBottom: 4,
+  },
+  headerSubtitle: {
+    color: 'rgba(255, 255, 255, 0.8)',
+    fontSize: 14,
+    textAlign: 'center',
   },
   content: {
     flex: 1,
