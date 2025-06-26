@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -9,13 +9,18 @@ import {
 import { Colors } from '../styles/colors';
 import { useApp } from '../context/AppContext';
 import JobListScreen from './JobListScreen';
+import JobDetailScreen from './JobDetailScreen';
 
 const TechDashboardScreen: React.FC = () => {
   const { logout } = useApp();
+  const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
 
   const handleJobPress = (jobId: string) => {
-    // TODO: Navigate to job details
-    Alert.alert('Job Details', `Opening job ${jobId}`);
+    setSelectedJobId(jobId);
+  };
+
+  const handleBackToList = () => {
+    setSelectedJobId(null);
   };
 
   const handleCreateJob = () => {
@@ -34,6 +39,17 @@ const TechDashboardScreen: React.FC = () => {
     );
   };
 
+  // Show Job Detail Screen if a job is selected
+  if (selectedJobId) {
+    return (
+      <JobDetailScreen
+        jobId={selectedJobId}
+        onBack={handleBackToList}
+      />
+    );
+  }
+
+  // Show Job List Screen by default
   return (
     <View style={styles.container}>
       {/* Menu Button Overlay */}
