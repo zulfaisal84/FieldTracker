@@ -124,12 +124,6 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
           </Text>
         </TouchableOpacity>
 
-        {/* Demo Credentials Hint */}
-        <View style={styles.hintContainer}>
-          <Text style={styles.hintTitle}>Demo Credentials:</Text>
-          <Text style={styles.hintText}>Tech: username "tech1" or "tech2", any password</Text>
-          <Text style={styles.hintText}>Manager: username "manager", any password</Text>
-        </View>
 
       </View>
     </View>

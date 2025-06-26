@@ -9,6 +9,7 @@ import { AppProvider, useApp } from './src/context/AppContext';
 import { Colors } from './src/styles/colors';
 import LoginScreen from './src/screens/LoginScreen';
 import TechDashboardScreen from './src/screens/TechDashboardScreen';
+import ManagerDashboardScreen from './src/screens/ManagerDashboardScreen';
 
 const AppContent = () => {
   const { isLoggedIn, currentUser } = useApp();
@@ -22,7 +23,11 @@ const AppContent = () => {
     return <TechDashboardScreen />;
   }
 
-  // Temporary manager dashboard (to be created later)
+  if (currentUser?.role === 'boss') {
+    return <ManagerDashboardScreen />;
+  }
+
+  // Fallback (shouldn't happen)
   return (
     <View style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor={Colors.white} />
@@ -32,10 +37,7 @@ const AppContent = () => {
           Welcome, {currentUser?.realName}!
         </Text>
         <Text style={styles.subtitle}>
-          👔 Manager Dashboard (Coming Soon)
-        </Text>
-        <Text style={styles.info}>
-          Logged in as: {currentUser?.username}
+          Unknown role: {currentUser?.role}
         </Text>
       </View>
     </View>

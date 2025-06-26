@@ -71,21 +71,144 @@ const createMockData = () => {
     },
   };
 
-  return { users, jobs: {}, notifications: {} };
+  // Mock Jobs for Demo
+  const jobs = {
+    'job1': {
+      id: 'job1',
+      title: 'KLCC Tower 1 - Machine 1 Electrical Works',
+      siteLocation: 'KLCC Tower 1, Level 23',
+      description: 'Routine maintenance and inspection of electrical systems in machine room 1. Check wiring, replace faulty components, and update maintenance logs.',
+      status: 'Created' as JobStatus,
+      createdBy: 'boss1',
+      assignedTechs: ['tech1', 'tech2'],
+      createdAt: '2024-12-25T09:00:00.000Z',
+      tasks: [],
+      pendingTasks: [],
+    },
+    'job2': {
+      id: 'job2',
+      title: 'Pavilion Mall - HVAC System Repair',
+      siteLocation: 'Pavilion Mall, Basement 2',
+      description: 'Emergency repair of HVAC unit in main server room. System overheating reported by facility management.',
+      status: 'In Progress' as JobStatus,
+      createdBy: 'boss1',
+      assignedTechs: ['tech1'],
+      createdAt: '2024-12-24T14:30:00.000Z',
+      startedAt: '2024-12-25T08:00:00.000Z',
+      tasks: [
+        {
+          id: 'task1',
+          description: 'Diagnosed cooling system failure',
+          startTime: '08:00 AM',
+          endTime: '09:30 AM',
+          date: '25/12/2024',
+          isCompleted: true,
+          beforePhoto: 'mock_photo_1.jpg',
+          afterPhoto: 'mock_photo_2.jpg',
+        }
+      ],
+      pendingTasks: ['Replace damaged cooling coils'],
+    },
+    'job3': {
+      id: 'job3',
+      title: 'Suria KLCC - Fire Safety System Check',
+      siteLocation: 'Suria KLCC, Multiple Floors',
+      description: 'Monthly fire safety system inspection and testing. Verify all smoke detectors, fire alarms, and emergency exits are functioning properly.',
+      status: 'Submitted' as JobStatus,
+      createdBy: 'boss1',
+      assignedTechs: ['tech2'],
+      createdAt: '2024-12-23T10:00:00.000Z',
+      startedAt: '2024-12-24T09:00:00.000Z',
+      completedAt: '2024-12-24T16:00:00.000Z',
+      submittedAt: '2024-12-24T16:30:00.000Z',
+      tasks: [
+        {
+          id: 'task2',
+          description: 'Tested Level 1-5 smoke detectors',
+          startTime: '09:00 AM',
+          endTime: '12:00 PM',
+          date: '24/12/2024',
+          isCompleted: true,
+          beforePhoto: 'mock_photo_3.jpg',
+          afterPhoto: 'mock_photo_4.jpg',
+        },
+        {
+          id: 'task3',
+          description: 'Checked emergency exit lighting',
+          startTime: '01:00 PM',
+          endTime: '04:00 PM',
+          date: '24/12/2024',
+          isCompleted: true,
+          beforePhoto: 'mock_photo_5.jpg',
+          afterPhoto: 'mock_photo_6.jpg',
+        }
+      ],
+      pendingTasks: [],
+    },
+    'job4': {
+      id: 'job4',
+      title: 'TRX Tower - Network Infrastructure Setup',
+      siteLocation: 'TRX Tower, IT Floor 45',
+      description: 'Install and configure new network switches and routers for expanded office space. Cable management and testing required.',
+      status: 'Rejected' as JobStatus,
+      createdBy: 'boss1',
+      assignedTechs: ['tech1'],
+      createdAt: '2024-12-22T11:00:00.000Z',
+      startedAt: '2024-12-23T08:00:00.000Z',
+      completedAt: '2024-12-23T17:00:00.000Z',
+      submittedAt: '2024-12-23T17:30:00.000Z',
+      rejectionReason: 'Cable management not up to standard. Please redo cable routing and labeling according to company guidelines.',
+      tasks: [
+        {
+          id: 'task4',
+          description: 'Installed network switches',
+          startTime: '08:00 AM',
+          endTime: '05:00 PM',
+          date: '23/12/2024',
+          isCompleted: true,
+          beforePhoto: 'mock_photo_7.jpg',
+          afterPhoto: 'mock_photo_8.jpg',
+        }
+      ],
+      pendingTasks: [],
+    },
+  };
+
+  return { users, jobs, notifications: {} };
 };
 
 export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const mockData = createMockData();
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [users, setUsers] = useState(mockData.users);
-  const [jobs, setJobs] = useState<{ [key: string]: Job }>({});
+  const [jobs, setJobs] = useState<{ [key: string]: Job }>(mockData.jobs);
   const [notifications, setNotifications] = useState<{ [key: string]: Notification }>({});
   const [isLoggedIn, setIsLoggedIn] = useState(false);
 
   // Authentication
   const login = (username: string, password: string, role: UserRole): boolean => {
-    const user = Object.values(users).find(u => u.username === username && u.role === role);
-    if (user) {
+    // For demo purposes: any non-empty username and password combination works
+    if (username.trim() && password.trim()) {
+      // Check if user exists, if not create a demo user
+      let user = Object.values(users).find(u => u.username === username && u.role === role);
+      
+      if (!user) {
+        // Create demo user on the fly
+        const newUser: User = {
+          id: `${role}_${Date.now()}`,
+          username: username.trim(),
+          role: role,
+          realName: role === 'boss' ? 'Demo Manager' : 'Demo Technician',
+          phone: '+1234567890',
+          email: `${username}@demo.com`,
+          createdAt: new Date().toISOString(),
+          isFirstLogin: false,
+        };
+        
+        setUsers(prev => ({ ...prev, [newUser.id]: newUser }));
+        user = newUser;
+      }
+      
       setCurrentUser(user);
       setIsLoggedIn(true);
       return true;

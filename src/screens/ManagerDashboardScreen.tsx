@@ -10,12 +10,12 @@ import { Colors } from '../styles/colors';
 import { useApp } from '../context/AppContext';
 import JobListScreen from './JobListScreen';
 
-const TechDashboardScreen: React.FC = () => {
+const ManagerDashboardScreen: React.FC = () => {
   const { logout } = useApp();
 
   const handleJobPress = (jobId: string) => {
     // TODO: Navigate to job details
-    Alert.alert('Job Details', `Opening job ${jobId}`);
+    Alert.alert('Job Details', `Opening job ${jobId} for review`);
   };
 
   const handleCreateJob = () => {
@@ -43,11 +43,11 @@ const TechDashboardScreen: React.FC = () => {
         </TouchableOpacity>
       </View>
 
-      {/* Use the new JobListScreen component */}
+      {/* Use the same JobListScreen component */}
       <JobListScreen
         onJobPress={handleJobPress}
         onCreateJobPress={handleCreateJob}
-        showCreateButton={true}
+        showCreateButton={false} // Managers don't need create button in job list
       />
     </View>
   );
@@ -79,9 +79,9 @@ const styles = StyleSheet.create({
   },
   menuText: {
     fontSize: 20,
-    color: Colors.tech,
+    color: Colors.boss,
     fontWeight: 'bold',
   },
 });
 
-export default TechDashboardScreen;
+export default ManagerDashboardScreen;
