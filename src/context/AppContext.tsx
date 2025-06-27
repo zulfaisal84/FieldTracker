@@ -607,6 +607,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
               ...task, 
               status: taskData.status,
               sessions: taskData.sessions,
+              photos: taskData.photos || [],
               remarks: taskData.notes
             }
           : task

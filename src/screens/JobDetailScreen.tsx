@@ -10,6 +10,7 @@ import {
   Modal,
   TextInput,
   Platform,
+  Image,
 } from 'react-native';
 import { Colors } from '../styles/colors';
 import { useApp } from '../context/AppContext';
@@ -293,30 +294,64 @@ const JobDetailScreen: React.FC<JobDetailScreenProps> = ({ jobId, onBack }) => {
                   </View>
                 )}
                 
-                {/* Photo Thumbnails */}
-                <View style={styles.photoSection}>
-                  <Text style={styles.photoSectionTitle}>📸 Photos</Text>
-                  <View style={styles.photoGrid}>
-                    <View style={styles.photoThumbnail}>
-                      <View style={styles.photoPlaceholder}>
-                        <Text style={styles.photoEmoji}>📷</Text>
+                {/* Photos by Category */}
+                {task.photos && task.photos.length > 0 && (
+                  <View style={styles.photoSection}>
+                    <Text style={styles.photoSectionTitle}>📸 Work Photos ({task.photos.length} total)</Text>
+                    
+                    {/* Before Photos */}
+                    {task.photos.filter(p => p.category === 'before').length > 0 && (
+                      <View style={styles.photoCategorySection}>
+                        <Text style={styles.photoCategoryTitle}>Before ({task.photos.filter(p => p.category === 'before').length})</Text>
+                        <View style={styles.photoGrid}>
+                          {task.photos.filter(p => p.category === 'before').map((photo) => (
+                            <View key={photo.id} style={styles.photoThumbnail}>
+                              <Image source={{ uri: photo.uri }} style={styles.photoImage} />
+                              <Text style={styles.photoLabel} numberOfLines={2}>
+                                {photo.description}
+                              </Text>
+                            </View>
+                          ))}
+                        </View>
                       </View>
-                      <Text style={styles.photoLabel}>Before</Text>
-                    </View>
-                    <View style={styles.photoThumbnail}>
-                      <View style={styles.photoPlaceholder}>
-                        <Text style={styles.photoEmoji}>📷</Text>
+                    )}
+                    
+                    {/* During Photos */}
+                    {task.photos.filter(p => p.category === 'during').length > 0 && (
+                      <View style={styles.photoCategorySection}>
+                        <Text style={styles.photoCategoryTitle}>During ({task.photos.filter(p => p.category === 'during').length})</Text>
+                        <View style={styles.photoGrid}>
+                          {task.photos.filter(p => p.category === 'during').map((photo) => (
+                            <View key={photo.id} style={styles.photoThumbnail}>
+                              <Image source={{ uri: photo.uri }} style={styles.photoImage} />
+                              <Text style={styles.photoLabel} numberOfLines={2}>
+                                {photo.description}
+                              </Text>
+                            </View>
+                          ))}
+                        </View>
                       </View>
-                      <Text style={styles.photoLabel}>During</Text>
-                    </View>
-                    <View style={styles.photoThumbnail}>
-                      <View style={styles.photoPlaceholder}>
-                        <Text style={styles.photoEmoji}>📷</Text>
+                    )}
+                    
+                    {/* After Photos */}
+                    {task.photos.filter(p => p.category === 'after').length > 0 && (
+                      <View style={styles.photoCategorySection}>
+                        <Text style={styles.photoCategoryTitle}>After ({task.photos.filter(p => p.category === 'after').length})</Text>
+                        <View style={styles.photoGrid}>
+                          {task.photos.filter(p => p.category === 'after').map((photo) => (
+                            <View key={photo.id} style={styles.photoThumbnail}>
+                              <Image source={{ uri: photo.uri }} style={styles.photoImage} />
+                              <Text style={styles.photoLabel} numberOfLines={2}>
+                                {photo.description}
+                              </Text>
+                            </View>
+                          ))}
+                        </View>
                       </View>
-                      <Text style={styles.photoLabel}>After</Text>
-                    </View>
+                    )}
                   </View>
-                </View>
+                )}
+                
               </TouchableOpacity>
             ))
           ) : (
@@ -360,30 +395,63 @@ const JobDetailScreen: React.FC<JobDetailScreenProps> = ({ jobId, onBack }) => {
                           </Text>
                         ))}
                         
-                        {/* Photo Thumbnails for In Progress Tasks */}
-                        <View style={styles.inlinePhotoSection}>
-                          <Text style={styles.inlinePhotoTitle}>📸 Photos</Text>
-                          <View style={styles.inlinePhotoGrid}>
-                            <View style={styles.inlinePhotoThumbnail}>
-                              <View style={styles.inlinePhotoPlaceholder}>
-                                <Text style={styles.inlinePhotoEmoji}>📷</Text>
+                        {/* Photos for In Progress Tasks */}
+                        {task.photos && task.photos.length > 0 && (
+                          <View style={styles.inlinePhotoSection}>
+                            <Text style={styles.inlinePhotoTitle}>📸 Work Photos ({task.photos.length})</Text>
+                            
+                            {/* Before Photos */}
+                            {task.photos.filter(p => p.category === 'before').length > 0 && (
+                              <View style={styles.inlinePhotoCategorySection}>
+                                <Text style={styles.inlinePhotoCategoryTitle}>Before ({task.photos.filter(p => p.category === 'before').length})</Text>
+                                <View style={styles.inlinePhotoGrid}>
+                                  {task.photos.filter(p => p.category === 'before').map((photo) => (
+                                    <View key={photo.id} style={styles.inlinePhotoThumbnail}>
+                                      <Image source={{ uri: photo.uri }} style={styles.inlinePhotoImage} />
+                                      <Text style={styles.inlinePhotoLabel} numberOfLines={2}>
+                                        {photo.description}
+                                      </Text>
+                                    </View>
+                                  ))}
+                                </View>
                               </View>
-                              <Text style={styles.inlinePhotoLabel}>Before</Text>
-                            </View>
-                            <View style={styles.inlinePhotoThumbnail}>
-                              <View style={styles.inlinePhotoPlaceholder}>
-                                <Text style={styles.inlinePhotoEmoji}>📷</Text>
+                            )}
+                            
+                            {/* During Photos */}
+                            {task.photos.filter(p => p.category === 'during').length > 0 && (
+                              <View style={styles.inlinePhotoCategorySection}>
+                                <Text style={styles.inlinePhotoCategoryTitle}>During ({task.photos.filter(p => p.category === 'during').length})</Text>
+                                <View style={styles.inlinePhotoGrid}>
+                                  {task.photos.filter(p => p.category === 'during').map((photo) => (
+                                    <View key={photo.id} style={styles.inlinePhotoThumbnail}>
+                                      <Image source={{ uri: photo.uri }} style={styles.inlinePhotoImage} />
+                                      <Text style={styles.inlinePhotoLabel} numberOfLines={2}>
+                                        {photo.description}
+                                      </Text>
+                                    </View>
+                                  ))}
+                                </View>
                               </View>
-                              <Text style={styles.inlinePhotoLabel}>During</Text>
-                            </View>
-                            <View style={styles.inlinePhotoThumbnail}>
-                              <View style={styles.inlinePhotoPlaceholder}>
-                                <Text style={styles.inlinePhotoEmoji}>📷</Text>
+                            )}
+                            
+                            {/* After Photos */}
+                            {task.photos.filter(p => p.category === 'after').length > 0 && (
+                              <View style={styles.inlinePhotoCategorySection}>
+                                <Text style={styles.inlinePhotoCategoryTitle}>After ({task.photos.filter(p => p.category === 'after').length})</Text>
+                                <View style={styles.inlinePhotoGrid}>
+                                  {task.photos.filter(p => p.category === 'after').map((photo) => (
+                                    <View key={photo.id} style={styles.inlinePhotoThumbnail}>
+                                      <Image source={{ uri: photo.uri }} style={styles.inlinePhotoImage} />
+                                      <Text style={styles.inlinePhotoLabel} numberOfLines={2}>
+                                        {photo.description}
+                                      </Text>
+                                    </View>
+                                  ))}
+                                </View>
                               </View>
-                              <Text style={styles.inlinePhotoLabel}>After</Text>
-                            </View>
+                            )}
                           </View>
-                        </View>
+                        )}
                       </View>
                     )}
                   </View>
@@ -720,48 +788,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: Colors.textSecondary,
   },
-  photoSection: {
-    marginTop: 12,
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: Colors.border,
-  },
-  photoSectionTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: Colors.text,
-    marginBottom: 8,
-  },
-  photoGrid: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  photoThumbnail: {
-    alignItems: 'center',
-    flex: 1,
-    marginHorizontal: 4,
-  },
-  photoPlaceholder: {
-    width: 60,
-    height: 60,
-    backgroundColor: Colors.cardBackground,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 4,
-  },
-  photoEmoji: {
-    fontSize: 24,
-    opacity: 0.6,
-  },
-  photoLabel: {
-    fontSize: 11,
-    color: Colors.textSecondary,
-    fontWeight: '500',
-    textAlign: 'center',
-  },
   emptyTasks: {
     alignItems: 'center',
     paddingVertical: 20,
@@ -875,6 +901,53 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.cardBackground,
     borderRadius: 6,
   },
+  photoSection: {
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: Colors.border,
+  },
+  photoSectionTitle: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: Colors.text,
+    marginBottom: 8,
+  },
+  photoGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  photoThumbnail: {
+    width: 80,
+    height: 80,
+    borderRadius: 8,
+    overflow: 'hidden',
+    backgroundColor: Colors.cardBackground,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  photoImage: {
+    width: '100%',
+    height: 60,
+    resizeMode: 'cover',
+  },
+  photoLabel: {
+    fontSize: 10,
+    color: Colors.text,
+    padding: 4,
+    lineHeight: 12,
+    textAlign: 'center',
+  },
+  photoCategorySection: {
+    marginBottom: 12,
+  },
+  photoCategoryTitle: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: Colors.text,
+    marginBottom: 6,
+  },
   inlineSessionsSection: {
     marginTop: 8,
     paddingTop: 8,
@@ -906,34 +979,38 @@ const styles = StyleSheet.create({
   },
   inlinePhotoGrid: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingHorizontal: 4,
+    flexWrap: 'wrap',
+    gap: 6,
   },
   inlinePhotoThumbnail: {
-    alignItems: 'center',
-    flex: 1,
-    marginHorizontal: 2,
-  },
-  inlinePhotoPlaceholder: {
-    width: 40,
-    height: 40,
-    backgroundColor: Colors.cardBackground,
+    width: 50,
+    height: 50,
     borderRadius: 6,
+    overflow: 'hidden',
+    backgroundColor: Colors.cardBackground,
     borderWidth: 1,
     borderColor: 'rgba(245, 158, 11, 0.3)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 3,
   },
-  inlinePhotoEmoji: {
-    fontSize: 16,
-    opacity: 0.6,
+  inlinePhotoImage: {
+    width: '100%',
+    height: 35,
+    resizeMode: 'cover',
   },
   inlinePhotoLabel: {
-    fontSize: 9,
+    fontSize: 8,
     color: Colors.textSecondary,
-    fontWeight: '500',
+    padding: 2,
+    lineHeight: 10,
     textAlign: 'center',
+  },
+  inlinePhotoCategorySection: {
+    marginBottom: 8,
+  },
+  inlinePhotoCategoryTitle: {
+    fontSize: 9,
+    fontWeight: '600',
+    color: '#F59E0B',
+    marginBottom: 4,
   },
   actionSection: {
     paddingHorizontal: 20,
