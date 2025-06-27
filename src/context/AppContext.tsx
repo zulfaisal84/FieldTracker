@@ -24,6 +24,7 @@ interface AppContextType extends AppState {
   // Task Management
   addTask: (jobId: string, description: string, date: string, startTime: string, endTime: string) => string;
   updateTask: (jobId: string, taskId: string, updates: any) => void;
+  addPendingTask: (jobId: string, description: string) => void;
   
   // Notifications
   addNotification: (userId: string, title: string, message: string, type: any, jobId?: string) => void;
@@ -292,6 +293,16 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const startJob = (jobId: string) => {
     const job = jobs[jobId];
     if (job && job.status === 'Created') {
+      // Check if there's at least 1 pending task
+      if (!job.pendingTasks || job.pendingTasks.length === 0) {
+        Alert.alert(
+          'Cannot Start Job',
+          'Please add at least one task before starting the job. Use the "Add Task" button to add your first task.',
+          [{ text: 'OK', style: 'default' }]
+        );
+        return;
+      }
+
       setJobs(prev => ({
         ...prev,
         [jobId]: {
@@ -482,6 +493,42 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }));
   };
 
+  const addPendingTask = (jobId: string, description: string) => {
+    setJobs(prev => ({
+      ...prev,
+      [jobId]: {
+        ...prev[jobId],
+        pendingTasks: [...(prev[jobId].pendingTasks || []), description]
+      }
+    }));
+
+    // Notify manager and other assigned techs about the new pending task
+    const job = jobs[jobId];
+    if (job) {
+      // Notify manager
+      addNotification(
+        job.createdBy,
+        'New Pending Task Added',
+        `New task added to ${job.title}: ${description}`,
+        'task_added',
+        jobId
+      );
+
+      // Notify other assigned techs
+      job.assignedTechs.forEach(techId => {
+        if (techId !== currentUser?.id) {
+          addNotification(
+            techId,
+            'Pending Task Added',
+            `Your colleague added a task to ${job.title}: ${description}`,
+            'task_added',
+            jobId
+          );
+        }
+      });
+    }
+  };
+
   // Notifications
   const addNotification = (userId: string, title: string, message: string, type: any, jobId?: string) => {
     const notificationId = `notif_${Date.now()}_${Math.random()}`;
@@ -541,6 +588,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     cancelJob,
     addTask,
     updateTask,
+    addPendingTask,
     addNotification,
     markNotificationRead,
     getJobsForUser,

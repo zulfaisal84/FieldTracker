@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -11,6 +11,7 @@ import {
 import { Colors } from '../styles/colors';
 import { useApp } from '../context/AppContext';
 import { JobStatus } from '../types';
+import TaskWorkModal, { TaskWorkData } from '../components/TaskWorkModal';
 
 interface JobDetailScreenProps {
   jobId: string;
@@ -18,7 +19,9 @@ interface JobDetailScreenProps {
 }
 
 const JobDetailScreen: React.FC<JobDetailScreenProps> = ({ jobId, onBack }) => {
-  const { currentUser, jobs, startJob, completeJob, submitJob, cancelJob } = useApp();
+  const { currentUser, jobs, startJob, completeJob, submitJob, cancelJob, addPendingTask } = useApp();
+  const [showTaskModal, setShowTaskModal] = useState(false);
+  const [selectedTask, setSelectedTask] = useState<string>('');
   
   const job = jobs[jobId];
 
@@ -83,19 +86,20 @@ const JobDetailScreen: React.FC<JobDetailScreenProps> = ({ jobId, onBack }) => {
         };
       case 'In Progress':
         if (isManager) {
-          return {
-            text: '👁️ Monitor Progress',
-            color: '#F59E0B',
-            onPress: () => Alert.alert('Monitoring', 'Tracking technician progress')
-          };
+          return null; // Managers don't need action button, Job Details page shows all progress
         }
         if (!isAssignedTech) {
           return null;
         }
         return {
-          text: '📝 Add Progress',
-          color: '#F59E0B',
-          onPress: () => Alert.alert('Add Progress', 'Task management coming soon')
+          text: '✅ Complete Job',
+          color: Colors.tech,
+          onPress: () => {
+            // Validate all tasks before allowing completion
+            if (completeJob(jobId)) {
+              Alert.alert('Success', 'Job completed! You can now submit it for approval.');
+            }
+          }
         };
       case 'Completed':
         if (isManager) {
@@ -251,6 +255,31 @@ const JobDetailScreen: React.FC<JobDetailScreenProps> = ({ jobId, onBack }) => {
                   <Text style={styles.taskDate}>📅 {task.date}</Text>
                   <Text style={styles.taskTime}>🕐 {task.startTime} - {task.endTime}</Text>
                 </View>
+                
+                {/* Photo Thumbnails */}
+                <View style={styles.photoSection}>
+                  <Text style={styles.photoSectionTitle}>📸 Photos</Text>
+                  <View style={styles.photoGrid}>
+                    <View style={styles.photoThumbnail}>
+                      <View style={styles.photoPlaceholder}>
+                        <Text style={styles.photoEmoji}>📷</Text>
+                      </View>
+                      <Text style={styles.photoLabel}>Before</Text>
+                    </View>
+                    <View style={styles.photoThumbnail}>
+                      <View style={styles.photoPlaceholder}>
+                        <Text style={styles.photoEmoji}>📷</Text>
+                      </View>
+                      <Text style={styles.photoLabel}>During</Text>
+                    </View>
+                    <View style={styles.photoThumbnail}>
+                      <View style={styles.photoPlaceholder}>
+                        <Text style={styles.photoEmoji}>📷</Text>
+                      </View>
+                      <Text style={styles.photoLabel}>After</Text>
+                    </View>
+                  </View>
+                </View>
               </View>
             ))
           ) : (
@@ -269,26 +298,71 @@ const JobDetailScreen: React.FC<JobDetailScreenProps> = ({ jobId, onBack }) => {
             <View style={styles.pendingSection}>
               <Text style={styles.pendingSectionTitle}>⏳ Pending Tasks</Text>
               {job.pendingTasks.map((task, index) => (
-                <View key={index} style={styles.pendingTask}>
-                  <Text style={styles.pendingTaskText}>• {task}</Text>
-                </View>
+                <TouchableOpacity 
+                  key={index} 
+                  style={styles.pendingTaskButton}
+                  onPress={() => {
+                    setSelectedTask(task);
+                    setShowTaskModal(true);
+                  }}
+                >
+                  <View style={styles.pendingTaskContent}>
+                    <Text style={styles.pendingTaskText}>📝 {task}</Text>
+                    <Text style={styles.pendingTaskStatus}>Tap to work</Text>
+                  </View>
+                  <Text style={styles.pendingTaskArrow}>▶</Text>
+                </TouchableOpacity>
               ))}
             </View>
           )}
         </View>
 
         {/* Action Buttons */}
-        {actionButton && (
+        {(actionButton || (currentUser?.role === 'boss' && (job.status === 'Created' || job.status === 'In Progress' || job.status === 'Submitted'))) && (
           <View style={styles.actionSection}>
-            <TouchableOpacity
-              style={[styles.actionButton, { backgroundColor: actionButton.color }]}
-              onPress={actionButton.onPress}
-            >
-              <Text style={styles.actionButtonText}>{actionButton.text}</Text>
-            </TouchableOpacity>
+            {/* Add Task Button - Only for techs on Created and In Progress jobs */}
+            {currentUser?.role !== 'boss' && job.assignedTechs.includes(currentUser?.id || '') && (job.status === 'Created' || job.status === 'In Progress') && (
+              <TouchableOpacity
+                style={[styles.actionButton, { backgroundColor: '#3B82F6' }]}
+                onPress={() => {
+                  Alert.prompt(
+                    'Add New Task',
+                    'Enter a description for the task you plan to work on:',
+                    [
+                      { text: 'Cancel', style: 'cancel' },
+                      {
+                        text: 'Add Task',
+                        onPress: (taskDescription) => {
+                          if (taskDescription && taskDescription.trim()) {
+                            addPendingTask(jobId, taskDescription.trim());
+                            Alert.alert('Task Added', 'Pending task has been added successfully!');
+                          } else {
+                            Alert.alert('Invalid Input', 'Please enter a valid task description');
+                          }
+                        }
+                      }
+                    ],
+                    'plain-text',
+                    '',
+                    'default'
+                  );
+                }}
+              >
+                <Text style={styles.actionButtonText}>📝 Add Task</Text>
+              </TouchableOpacity>
+            )}
             
-            {/* Cancel Job Button - Only for managers on In Progress and Submitted jobs */}
-            {currentUser?.role === 'boss' && (job.status === 'In Progress' || job.status === 'Submitted') && (
+            {actionButton && (
+              <TouchableOpacity
+                style={[styles.actionButton, { backgroundColor: actionButton.color }]}
+                onPress={actionButton.onPress}
+              >
+                <Text style={styles.actionButtonText}>{actionButton.text}</Text>
+              </TouchableOpacity>
+            )}
+            
+            {/* Cancel Job Button - Only for managers on Created, In Progress and Submitted jobs */}
+            {currentUser?.role === 'boss' && (job.status === 'Created' || job.status === 'In Progress' || job.status === 'Submitted') && (
               <TouchableOpacity
                 style={[styles.actionButton, styles.cancelButton]}
                 onPress={() => {
@@ -317,6 +391,18 @@ const JobDetailScreen: React.FC<JobDetailScreenProps> = ({ jobId, onBack }) => {
 
         <View style={styles.bottomPadding} />
       </ScrollView>
+
+      {/* Task Work Modal */}
+      <TaskWorkModal
+        visible={showTaskModal}
+        onClose={() => setShowTaskModal(false)}
+        taskDescription={selectedTask}
+        onUpdateTask={(taskData: TaskWorkData) => {
+          // Handle task update
+          Alert.alert('Task Updated', `Task status: ${taskData.status}`);
+          setShowTaskModal(false);
+        }}
+      />
     </View>
   );
 };
@@ -477,6 +563,48 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: Colors.textSecondary,
   },
+  photoSection: {
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: Colors.border,
+  },
+  photoSectionTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: Colors.text,
+    marginBottom: 8,
+  },
+  photoGrid: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  photoThumbnail: {
+    alignItems: 'center',
+    flex: 1,
+    marginHorizontal: 4,
+  },
+  photoPlaceholder: {
+    width: 60,
+    height: 60,
+    backgroundColor: Colors.cardBackground,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 4,
+  },
+  photoEmoji: {
+    fontSize: 24,
+    opacity: 0.6,
+  },
+  photoLabel: {
+    fontSize: 11,
+    color: Colors.textSecondary,
+    fontWeight: '500',
+    textAlign: 'center',
+  },
   emptyTasks: {
     alignItems: 'center',
     paddingVertical: 20,
@@ -503,12 +631,40 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
     marginBottom: 8,
   },
-  pendingTask: {
-    marginBottom: 4,
+  pendingTaskButton: {
+    backgroundColor: Colors.white,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 8,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  pendingTaskContent: {
+    flex: 1,
   },
   pendingTaskText: {
     fontSize: 14,
+    color: Colors.text,
+    fontWeight: '500',
+    marginBottom: 2,
+  },
+  pendingTaskStatus: {
+    fontSize: 12,
     color: Colors.textSecondary,
+    fontStyle: 'italic',
+  },
+  pendingTaskArrow: {
+    fontSize: 16,
+    color: Colors.textSecondary,
+    marginLeft: 8,
   },
   actionSection: {
     paddingHorizontal: 20,
