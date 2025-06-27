@@ -24,16 +24,23 @@ export interface Photo {
   taskId: string;
 }
 
+export interface WorkSession {
+  id: string;
+  date: string;
+  startTime: string;
+  endTime: string;
+  isActive: boolean;
+}
+
 export interface Task {
   id: string;
   description: string;
-  startTime: string;
-  endTime: string;
-  date: string;
+  status: 'pending' | 'in_progress' | 'completed';
+  sessions: WorkSession[];
   beforePhoto?: Photo;
   duringPhoto?: Photo;
   afterPhoto?: Photo;
-  isCompleted: boolean;
+  remarks?: string;
 }
 
 export interface Job {
@@ -50,7 +57,6 @@ export interface Job {
   submittedAt?: string;
   approvedAt?: string;
   tasks: Task[];
-  pendingTasks: string[];
   bossComments?: string;
   rejectionReason?: string;
 }

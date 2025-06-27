@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   StyleSheet,
   StatusBar,
+  Platform,
 } from 'react-native';
 import { Colors } from '../styles/colors';
 import { useApp } from '../context/AppContext';
@@ -199,7 +200,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.background,
   },
   header: {
-    paddingTop: 60,
+    paddingTop: Platform.OS === 'ios' ? 60 : 30,
     paddingBottom: 24,
     paddingHorizontal: 20,
   },

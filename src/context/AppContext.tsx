@@ -25,6 +25,7 @@ interface AppContextType extends AppState {
   addTask: (jobId: string, description: string, date: string, startTime: string, endTime: string) => string;
   updateTask: (jobId: string, taskId: string, updates: any) => void;
   addPendingTask: (jobId: string, description: string) => void;
+  updateTaskStatus: (jobId: string, taskDescription: string, taskData: any) => void;
   
   // Notifications
   addNotification: (userId: string, title: string, message: string, type: any, jobId?: string) => void;
@@ -85,7 +86,6 @@ const createMockData = () => {
       assignedTechs: ['tech1', 'tech2'],
       createdAt: '2024-12-26T09:00:00.000Z',
       tasks: [],
-      pendingTasks: [],
     },
     'job2': {
       id: 'job2',
@@ -97,7 +97,6 @@ const createMockData = () => {
       assignedTechs: ['tech1'],
       createdAt: '2024-12-26T10:30:00.000Z',
       tasks: [],
-      pendingTasks: [],
     },
     'job3': {
       id: 'job3',
@@ -111,17 +110,34 @@ const createMockData = () => {
       startedAt: '2024-12-26T09:00:00.000Z',
       tasks: [
         {
+          id: 'task1',
+          description: 'Check emergency exit lighting',
+          status: 'pending' as const,
+          sessions: [],
+        },
+        {
           id: 'task2',
           description: 'Tested Level 1-5 smoke detectors',
-          startTime: '09:00 AM',
-          endTime: '12:00 PM',
-          date: '26/12/2024',
-          isCompleted: true,
+          status: 'completed' as const,
+          sessions: [
+            {
+              id: 'session1',
+              date: '26/12/2024',
+              startTime: '09:00 AM',
+              endTime: '12:00 PM',
+              isActive: false,
+            }
+          ],
           beforePhoto: 'mock_photo_3.jpg',
           afterPhoto: 'mock_photo_4.jpg',
+        },
+        {
+          id: 'task3',
+          description: 'Test fire alarm systems',
+          status: 'pending' as const,
+          sessions: [],
         }
       ],
-      pendingTasks: ['Check emergency exit lighting', 'Test fire alarm systems'],
     },
     'job4': {
       id: 'job4',
@@ -139,25 +155,36 @@ const createMockData = () => {
         {
           id: 'task4',
           description: 'Installed network switches',
-          startTime: '08:00 AM',
-          endTime: '12:00 PM',
-          date: '25/12/2024',
-          isCompleted: true,
+          status: 'completed' as const,
+          sessions: [
+            {
+              id: 'session2',
+              date: '25/12/2024',
+              startTime: '08:00 AM',
+              endTime: '12:00 PM',
+              isActive: false,
+            }
+          ],
           beforePhoto: 'mock_photo_7.jpg',
           afterPhoto: 'mock_photo_8.jpg',
         },
         {
           id: 'task5',
           description: 'Configured router settings',
-          startTime: '01:00 PM',
-          endTime: '05:00 PM',
-          date: '25/12/2024',
-          isCompleted: true,
+          status: 'completed' as const,
+          sessions: [
+            {
+              id: 'session3',
+              date: '25/12/2024',
+              startTime: '01:00 PM',
+              endTime: '05:00 PM',
+              isActive: false,
+            }
+          ],
           beforePhoto: 'mock_photo_9.jpg',
           afterPhoto: 'mock_photo_10.jpg',
         }
       ],
-      pendingTasks: [],
     },
     'job5': {
       id: 'job5',
@@ -169,7 +196,6 @@ const createMockData = () => {
       assignedTechs: ['tech2'],
       createdAt: '2024-12-26T11:15:00.000Z',
       tasks: [],
-      pendingTasks: [],
     },
   };
 
@@ -264,7 +290,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       assignedTechs,
       createdAt: new Date().toISOString(),
       tasks: [],
-      pendingTasks: [],
     };
 
     setJobs(prev => ({ ...prev, [jobId]: newJob }));
@@ -294,7 +319,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     const job = jobs[jobId];
     if (job && job.status === 'Created') {
       // Check if there's at least 1 pending task
-      if (!job.pendingTasks || job.pendingTasks.length === 0) {
+      const pendingTasks = job.tasks.filter(task => task.status === 'pending');
+      if (pendingTasks.length === 0) {
         Alert.alert(
           'Cannot Start Job',
           'Please add at least one task before starting the job. Use the "Add Task" button to add your first task.',
@@ -321,7 +347,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         jobId
       );
 
-      Alert.alert('Success', 'Job started successfully!');
+      Alert.alert('Success', 'Job started! You can now add tasks and track progress.');
     }
   };
 
@@ -494,13 +520,29 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   };
 
   const addPendingTask = (jobId: string, description: string) => {
-    setJobs(prev => ({
-      ...prev,
-      [jobId]: {
-        ...prev[jobId],
-        pendingTasks: [...(prev[jobId].pendingTasks || []), description]
-      }
-    }));
+    const newTask = {
+      id: `task_${Date.now()}`,
+      description,
+      status: 'pending' as const,
+      sessions: [],
+    };
+    
+    setJobs(prev => {
+      const currentJob = prev[jobId];
+      const updatedTasks = [...currentJob.tasks, newTask];
+      
+      // Calculate new job status (adding pending task shouldn't change status from Created)
+      const newJobStatus = calculateJobStatus(updatedTasks, currentJob.status);
+      
+      return {
+        ...prev,
+        [jobId]: {
+          ...currentJob,
+          tasks: updatedTasks,
+          status: newJobStatus
+        }
+      };
+    });
 
     // Notify manager and other assigned techs about the new pending task
     const job = jobs[jobId];
@@ -527,6 +569,73 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         }
       });
     }
+  };
+
+  // Helper function to calculate job status based on tasks
+  const calculateJobStatus = (tasks: any[], currentStatus: JobStatus): JobStatus => {
+    if (!tasks || tasks.length === 0) {
+      return 'Created'; // No tasks = job not started
+    }
+
+    const hasInProgressTasks = tasks.some(task => task.status === 'in_progress');
+    const hasCompletedTasks = tasks.some(task => task.status === 'completed');
+
+    // If already submitted/approved/rejected, don't change status
+    if (['Submitted', 'Approved', 'Rejected'].includes(currentStatus)) {
+      return currentStatus;
+    }
+
+    // If already completed, keep it completed (only manual "Complete Work" or "Submit Job" should change this)
+    if (currentStatus === 'Completed') {
+      return currentStatus;
+    }
+
+    // Determine status based on task progress - but NEVER auto-complete the job
+    if (hasInProgressTasks || hasCompletedTasks) {
+      return 'In Progress';  // Job stays "In Progress" even if all tasks completed
+    } else {
+      return 'Created'; // All tasks are pending
+    }
+  };
+
+  const updateTaskStatus = (jobId: string, taskDescription: string, taskData: any) => {
+    setJobs(prev => {
+      const currentJob = prev[jobId];
+      const updatedTasks = currentJob.tasks.map(task =>
+        task.description === taskDescription 
+          ? { 
+              ...task, 
+              status: taskData.status,
+              sessions: taskData.sessions,
+              remarks: taskData.notes
+            }
+          : task
+      );
+
+      // Calculate new job status based on updated tasks
+      const newJobStatus = calculateJobStatus(updatedTasks, currentJob.status);
+      
+      // Update timestamps based on status changes
+      const updates: any = { tasks: updatedTasks };
+      
+      if (newJobStatus !== currentJob.status) {
+        updates.status = newJobStatus;
+        
+        if (newJobStatus === 'In Progress' && !currentJob.startedAt) {
+          updates.startedAt = new Date().toISOString();
+        } else if (newJobStatus === 'Completed' && !currentJob.completedAt) {
+          updates.completedAt = new Date().toISOString();
+        }
+      }
+
+      return {
+        ...prev,
+        [jobId]: {
+          ...currentJob,
+          ...updates
+        }
+      };
+    });
   };
 
   // Notifications
@@ -589,6 +698,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     addTask,
     updateTask,
     addPendingTask,
+    updateTaskStatus,
     addNotification,
     markNotificationRead,
     getJobsForUser,
