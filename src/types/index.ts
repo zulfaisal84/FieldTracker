@@ -26,7 +26,8 @@ export interface Photo {
 
 export interface WorkSession {
   id: string;
-  date: string;
+  startDate: string;
+  endDate: string;
   startTime: string;
   endTime: string;
   isActive: boolean;

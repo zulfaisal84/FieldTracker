@@ -10,6 +10,7 @@ import {
   ScrollView,
   Platform,
 } from 'react-native';
+// Removed DateTimePicker - using simple text inputs instead
 import { Colors } from '../styles/colors';
 
 interface TaskWorkModalProps {
@@ -22,7 +23,8 @@ interface TaskWorkModalProps {
 
 export interface WorkSession {
   id: string;
-  date: string;
+  startDate: string;
+  endDate: string;
   startTime: string;
   endTime: string;
   isActive: boolean;
@@ -50,14 +52,52 @@ const TaskWorkModal: React.FC<TaskWorkModalProps> = ({
   const [sessions, setSessions] = useState<WorkSession[]>([]);
   const [showAddSession, setShowAddSession] = useState(false);
   const [editingSession, setEditingSession] = useState<WorkSession | null>(null);
-  const [sessionDate, setSessionDate] = useState('');
-  const [sessionStartTime, setSessionStartTime] = useState('');
-  const [sessionEndTime, setSessionEndTime] = useState('');
+  
+  // Simple text input state for session entry  
+  const [startDateText, setStartDateText] = useState(() => {
+    const now = new Date();
+    const dd = String(now.getDate()).padStart(2, '0');
+    const mm = String(now.getMonth() + 1).padStart(2, '0');
+    const yyyy = now.getFullYear();
+    return `${dd}/${mm}/${yyyy}`;
+  });
+  const [endDateText, setEndDateText] = useState(() => {
+    const now = new Date();
+    const dd = String(now.getDate()).padStart(2, '0');
+    const mm = String(now.getMonth() + 1).padStart(2, '0');
+    const yyyy = now.getFullYear();
+    return `${dd}/${mm}/${yyyy}`;
+  });
+  const [startTimeText, setStartTimeText] = useState(() => {
+    const now = new Date();
+    const hours = now.getHours();
+    const minutes = String(now.getMinutes()).padStart(2, '0');
+    const ampm = hours >= 12 ? 'PM' : 'AM';
+    const hours12 = hours % 12 || 12;
+    return `${hours12}:${minutes} ${ampm}`;
+  });
+  const [endTimeText, setEndTimeText] = useState(() => {
+    const now = new Date();
+    const hours = now.getHours();
+    const minutes = String(now.getMinutes()).padStart(2, '0');
+    const ampm = hours >= 12 ? 'PM' : 'AM';
+    const hours12 = hours % 12 || 12;
+    return `${hours12}:${minutes} ${ampm}`;
+  });
+  const [hasEndTime, setHasEndTime] = useState(false);
 
   // Load existing task data or reset for new tasks
   useEffect(() => {
     if (visible) {
       setShowAddSession(false);
+      
+      // Initialize session form state
+      setStartDateText(getCurrentDate());
+      setEndDateText(getCurrentDate());
+      setStartTimeText(getCurrentTime());
+      setEndTimeText(getCurrentTime());
+      setHasEndTime(false);
+      setEditingSession(null);
       
       if (existingTaskData) {
         // Load existing task data
@@ -73,11 +113,12 @@ const TaskWorkModal: React.FC<TaskWorkModalProps> = ({
     }
   }, [visible, taskDescription, existingTaskData]);
 
+  // Helper functions for date/time formatting and validation
   const getCurrentDate = () => {
-    const today = new Date();
-    const dd = String(today.getDate()).padStart(2, '0');
-    const mm = String(today.getMonth() + 1).padStart(2, '0');
-    const yyyy = today.getFullYear();
+    const now = new Date();
+    const dd = String(now.getDate()).padStart(2, '0');
+    const mm = String(now.getMonth() + 1).padStart(2, '0');
+    const yyyy = now.getFullYear();
     return `${dd}/${mm}/${yyyy}`;
   };
 
@@ -90,24 +131,67 @@ const TaskWorkModal: React.FC<TaskWorkModalProps> = ({
     return `${hours12}:${minutes} ${ampm}`;
   };
 
+  const isValidDate = (dateStr: string) => {
+    const regex = /^\d{2}\/\d{2}\/\d{4}$/;
+    return regex.test(dateStr);
+  };
+
+  const isValidTime = (timeStr: string) => {
+    const regex = /^\d{1,2}:\d{2}\s(AM|PM)$/;
+    return regex.test(timeStr);
+  };
+
   const handleStatusChange = (newStatus: 'pending' | 'in_progress' | 'completed') => {
     setStatus(newStatus);
     
     if (newStatus === 'in_progress') {
       // Show add session modal to manually enter first session
-      setSessionDate(getCurrentDate());
-      setSessionStartTime(getCurrentTime());
-      setSessionEndTime('');
+      setStartDateText(getCurrentDate());
+      setEndDateText(getCurrentDate());
+      setStartTimeText(getCurrentTime());
+      setEndTimeText(getCurrentTime());
+      setHasEndTime(false);
       setEditingSession(null);
       setShowAddSession(true);
     }
   };
 
   const saveSession = () => {
-    if (!sessionDate || !sessionStartTime) {
-      Alert.alert('Missing Information', 'Please fill in date and start time');
+    // Validate that we have at least start date and time
+    if (!startDateText || !startDateText.trim() || !startTimeText || !startTimeText.trim()) {
+      Alert.alert('Missing Information', 'Please enter start date and time');
       return;
     }
+
+    // Validate date and time formats
+    if (!isValidDate(startDateText.trim())) {
+      Alert.alert('Invalid Date', 'Please use DD/MM/YYYY format (e.g., 27/06/2025)');
+      return;
+    }
+
+    if (!isValidTime(startTimeText.trim())) {
+      Alert.alert('Invalid Time', 'Please use H:MM AM/PM format (e.g., 1:30 PM)');
+      return;
+    }
+
+    if (hasEndTime) {
+      if (!endDateText || !endDateText.trim() || !endTimeText || !endTimeText.trim()) {
+        Alert.alert('Missing Information', 'Please enter end date and time');
+        return;
+      }
+      if (!isValidDate(endDateText.trim()) || !isValidTime(endTimeText.trim())) {
+        Alert.alert('Invalid Format', 'Please check your end date and time formats');
+        return;
+      }
+    }
+
+    const sessionData = {
+      startDate: startDateText.trim(),
+      endDate: hasEndTime ? endDateText.trim() : startDateText.trim(),
+      startTime: startTimeText.trim(),
+      endTime: hasEndTime ? endTimeText.trim() : '',
+      isActive: !hasEndTime
+    };
 
     if (editingSession) {
       // Update existing session
@@ -115,10 +199,7 @@ const TaskWorkModal: React.FC<TaskWorkModalProps> = ({
         session.id === editingSession.id
           ? {
               ...session,
-              date: sessionDate,
-              startTime: sessionStartTime,
-              endTime: sessionEndTime,
-              isActive: !sessionEndTime // If no end time, session is still active
+              ...sessionData
             }
           : session
       ));
@@ -126,20 +207,23 @@ const TaskWorkModal: React.FC<TaskWorkModalProps> = ({
       // Add new session
       const newSession: WorkSession = {
         id: `session_${Date.now()}`,
-        date: sessionDate,
-        startTime: sessionStartTime,
-        endTime: sessionEndTime,
-        isActive: !sessionEndTime, // If no end time, session is still active
+        ...sessionData
       };
       setSessions(prev => [...prev, newSession]);
     }
 
     // Reset form and close modal
-    setSessionDate('');
-    setSessionStartTime('');
-    setSessionEndTime('');
-    setEditingSession(null);
+    resetSessionForm();
     setShowAddSession(false);
+  };
+
+  const resetSessionForm = () => {
+    setStartDateText(getCurrentDate());
+    setEndDateText(getCurrentDate());
+    setStartTimeText(getCurrentTime());
+    setEndTimeText(getCurrentTime());
+    setHasEndTime(false);
+    setEditingSession(null);
   };
 
   const handleSave = () => {
@@ -187,9 +271,21 @@ const TaskWorkModal: React.FC<TaskWorkModalProps> = ({
                   onPress={() => {
                     // Open session for editing
                     setEditingSession(session);
-                    setSessionDate(session.date);
-                    setSessionStartTime(session.startTime);
-                    setSessionEndTime(session.endTime || '');
+                    
+                    // Load existing session data into text inputs
+                    setStartDateText(session.startDate);
+                    setStartTimeText(session.startTime);
+                    
+                    if (session.endTime) {
+                      setEndDateText(session.endDate);
+                      setEndTimeText(session.endTime);
+                      setHasEndTime(true);
+                    } else {
+                      setEndDateText(session.startDate);
+                      setEndTimeText(getCurrentTime());
+                      setHasEndTime(false);
+                    }
+                    
                     setShowAddSession(true);
                   }}
                 >
@@ -200,7 +296,10 @@ const TaskWorkModal: React.FC<TaskWorkModalProps> = ({
                     </Text>
                   </View>
                   <Text style={styles.sessionDetails}>
-                    {session.date} {session.startTime} - {session.endTime || '[Active]'}
+                    {session.startDate === session.endDate 
+                      ? `${session.startDate} ${session.startTime} - ${session.endTime || '[Active]'}`
+                      : `${session.startDate} ${session.startTime} - ${session.endDate} ${session.endTime || '[Active]'}`
+                    }
                   </Text>
                   <Text style={styles.sessionTapHint}>Tap to edit</Text>
                 </TouchableOpacity>
@@ -210,10 +309,7 @@ const TaskWorkModal: React.FC<TaskWorkModalProps> = ({
               <TouchableOpacity 
                 style={styles.addSessionButton}
                 onPress={() => {
-                  setSessionDate(getCurrentDate());
-                  setSessionStartTime(getCurrentTime());
-                  setSessionEndTime('');
-                  setEditingSession(null);
+                  resetSessionForm();
                   setShowAddSession(true);
                 }}
               >
@@ -273,7 +369,8 @@ const TaskWorkModal: React.FC<TaskWorkModalProps> = ({
                   // Create first session when starting task
                   const firstSession: WorkSession = {
                     id: `session_${Date.now()}`,
-                    date: getCurrentDate(),
+                    startDate: getCurrentDate(),
+                    endDate: getCurrentDate(),
                     startTime: getCurrentTime(),
                     endTime: '',
                     isActive: true,
@@ -335,44 +432,85 @@ const TaskWorkModal: React.FC<TaskWorkModalProps> = ({
         <Modal transparent animationType="fade">
           <View style={styles.modalOverlay}>
             <View style={styles.sessionModal}>
+              <ScrollView 
+                style={styles.sessionModalContent}
+                contentContainerStyle={styles.sessionModalScrollContainer}
+                showsVerticalScrollIndicator={Platform.OS === 'android'}
+                keyboardShouldPersistTaps="handled"
+                nestedScrollEnabled={true}
+                bounces={false}
+                overScrollMode="never"
+              >
               <Text style={styles.sessionModalTitle}>
                 {editingSession ? 'Edit Session' : 'Add New Session'}
               </Text>
               
-              {/* Date Input */}
-              <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Date (dd/mm/yyyy)</Text>
-                <TextInput
-                  style={styles.textInput}
-                  value={sessionDate}
-                  onChangeText={setSessionDate}
-                  placeholder="27/06/2025"
-                  placeholderTextColor={Colors.textSecondary}
-                />
+              {/* Start Date & Time Inputs */}
+              <View style={styles.dateTimeSection}>
+                <Text style={styles.sectionHeader}>📅 Start Date & Time</Text>
+                
+                <View style={styles.inputGroup}>
+                  <Text style={styles.inputLabel}>Start Date (DD/MM/YYYY):</Text>
+                  <TextInput
+                    style={styles.textInput}
+                    value={startDateText}
+                    onChangeText={setStartDateText}
+                    placeholder="27/06/2025"
+                    placeholderTextColor={Colors.textSecondary}
+                  />
+                </View>
+
+                <View style={styles.inputGroup}>
+                  <Text style={styles.inputLabel}>Start Time (H:MM AM/PM):</Text>
+                  <TextInput
+                    style={styles.textInput}
+                    value={startTimeText}
+                    onChangeText={setStartTimeText}
+                    placeholder="1:30 PM"
+                    placeholderTextColor={Colors.textSecondary}
+                  />
+                </View>
               </View>
 
-              {/* Start Time Input */}
-              <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Start Time (hh:mm AM/PM)</Text>
-                <TextInput
-                  style={styles.textInput}
-                  value={sessionStartTime}
-                  onChangeText={setSessionStartTime}
-                  placeholder="09:00 AM"
-                  placeholderTextColor={Colors.textSecondary}
-                />
-              </View>
+              {/* End Date & Time Toggle */}
+              <View style={styles.dateTimeSection}>
+                <View style={styles.toggleSection}>
+                  <Text style={styles.sectionHeader}>📅 End Date & Time</Text>
+                  <TouchableOpacity
+                    style={[styles.toggleButton, hasEndTime && styles.toggleButtonActive]}
+                    onPress={() => setHasEndTime(!hasEndTime)}
+                  >
+                    <Text style={[styles.toggleText, hasEndTime && styles.toggleTextActive]}>
+                      {hasEndTime ? 'Has End Time' : 'Ongoing Work'}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
 
-              {/* End Time Input */}
-              <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>End Time (hh:mm AM/PM) - Optional</Text>
-                <TextInput
-                  style={styles.textInput}
-                  value={sessionEndTime}
-                  onChangeText={setSessionEndTime}
-                  placeholder="12:00 PM (leave empty if ongoing)"
-                  placeholderTextColor={Colors.textSecondary}
-                />
+                {hasEndTime && (
+                  <>
+                    <View style={styles.inputGroup}>
+                      <Text style={styles.inputLabel}>End Date (DD/MM/YYYY):</Text>
+                      <TextInput
+                        style={styles.textInput}
+                        value={endDateText}
+                        onChangeText={setEndDateText}
+                        placeholder="27/06/2025"
+                        placeholderTextColor={Colors.textSecondary}
+                      />
+                    </View>
+
+                    <View style={styles.inputGroup}>
+                      <Text style={styles.inputLabel}>End Time (H:MM AM/PM):</Text>
+                      <TextInput
+                        style={styles.textInput}
+                        value={endTimeText}
+                        onChangeText={setEndTimeText}
+                        placeholder="5:30 PM"
+                        placeholderTextColor={Colors.textSecondary}
+                      />
+                    </View>
+                  </>
+                )}
               </View>
               
               {/* Buttons */}
@@ -389,20 +527,19 @@ const TaskWorkModal: React.FC<TaskWorkModalProps> = ({
                 <TouchableOpacity
                   style={[styles.sessionModalButton, styles.cancelSessionButton]}
                   onPress={() => {
-                    setSessionDate('');
-                    setSessionStartTime('');
-                    setSessionEndTime('');
-                    setEditingSession(null);
+                    resetSessionForm();
                     setShowAddSession(false);
                   }}
                 >
                   <Text style={styles.cancelSessionButtonText}>Cancel</Text>
                 </TouchableOpacity>
               </View>
+              </ScrollView>
             </View>
           </View>
         </Modal>
       )}
+
     </Modal>
   );
 };
@@ -601,14 +738,22 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'center',
     alignItems: 'center',
+    padding: 20,
   },
   sessionModal: {
     backgroundColor: Colors.white,
     borderRadius: 12,
+    width: '100%',
+    maxHeight: '85%',
+    minHeight: '60%',
+  },
+  sessionModalContent: {
+    flex: 1,
+  },
+  sessionModalScrollContainer: {
+    flexGrow: 1,
     padding: 20,
-    margin: 20,
-    minWidth: 320,
-    maxHeight: '80%',
+    paddingBottom: 40,
   },
   sessionModalTitle: {
     fontSize: 18,
@@ -642,7 +787,78 @@ const styles = StyleSheet.create({
   sessionModalButtons: {
     flexDirection: 'column',
     gap: 10,
-    marginTop: 10,
+    marginTop: 20,
+  },
+  dateTimeSection: {
+    marginBottom: 20,
+  },
+  sectionHeader: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: Colors.text,
+    marginBottom: 12,
+  },
+  toggleSection: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  toggleButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    backgroundColor: Colors.cardBackground,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  toggleButtonActive: {
+    backgroundColor: Colors.tech,
+    borderColor: Colors.tech,
+  },
+  toggleText: {
+    fontSize: 12,
+    color: Colors.textSecondary,
+    fontWeight: '500',
+  },
+  toggleTextActive: {
+    color: Colors.white,
+  },
+  dateTimeButton: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: Colors.white,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    borderRadius: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    marginBottom: 8,
+  },
+  dateTimeLabel: {
+    fontSize: 14,
+    color: Colors.text,
+    fontWeight: '500',
+  },
+  inputGroup: {
+    marginBottom: 16,
+  },
+  inputLabel: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: Colors.text,
+    marginBottom: 6,
+  },
+  textInput: {
+    borderWidth: 1,
+    borderColor: Colors.border,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 16,
+    color: Colors.text,
+    backgroundColor: Colors.white,
   },
 });
 

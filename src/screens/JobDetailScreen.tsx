@@ -272,7 +272,10 @@ const JobDetailScreen: React.FC<JobDetailScreenProps> = ({ jobId, onBack }) => {
                     {task.sessions.map((session, sessionIndex) => (
                       <View key={session.id} style={styles.taskSessionItem}>
                         <Text style={styles.taskSessionText}>
-                          Session {sessionIndex + 1}: {session.date} {session.startTime} - {session.endTime || '[Active]'}
+                          Session {sessionIndex + 1}: {session.startDate === session.endDate 
+                            ? `${session.startDate} ${session.startTime} - ${session.endTime || '[Active]'}`
+                            : `${session.startDate} ${session.startTime} - ${session.endDate} ${session.endTime || '[Active]'}`
+                          }
                         </Text>
                         <Text style={styles.taskSessionStatus}>
                           {session.isActive ? '🔄' : '✅'}
@@ -350,7 +353,10 @@ const JobDetailScreen: React.FC<JobDetailScreenProps> = ({ jobId, onBack }) => {
                         <Text style={styles.inlineSessionsTitle}>📋 Sessions ({task.sessions.length})</Text>
                         {task.sessions.map((session, sessionIndex) => (
                           <Text key={session.id} style={styles.inlineSessionText}>
-                            • Session {sessionIndex + 1}: {session.date} {session.startTime} - {session.endTime || '[Active]'} {session.isActive ? '🔄' : '✅'}
+                            • Session {sessionIndex + 1}: {session.startDate === session.endDate 
+                              ? `${session.startDate} ${session.startTime} - ${session.endTime || '[Active]'}`
+                              : `${session.startDate} ${session.startTime} - ${session.endDate} ${session.endTime || '[Active]'}`
+                            } {session.isActive ? '🔄' : '✅'}
                           </Text>
                         ))}
                         
