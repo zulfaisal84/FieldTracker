@@ -15,13 +15,13 @@ export interface User {
   isFirstLogin: boolean;
 }
 
-export interface Photo {
+export interface TaskPhoto {
   id: string;
   uri: string;
   description: string;
-  type: 'before' | 'during' | 'after';
+  category: 'before' | 'during' | 'after';
   timestamp: string;
-  taskId: string;
+  fileSize: number;
 }
 
 export interface WorkSession {
@@ -38,9 +38,7 @@ export interface Task {
   description: string;
   status: 'pending' | 'in_progress' | 'completed';
   sessions: WorkSession[];
-  beforePhoto?: Photo;
-  duringPhoto?: Photo;
-  afterPhoto?: Photo;
+  photos: TaskPhoto[];
   remarks?: string;
 }
 

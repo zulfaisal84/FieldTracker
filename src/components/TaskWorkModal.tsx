@@ -9,8 +9,9 @@ import {
   Alert,
   ScrollView,
   Platform,
+  Image,
 } from 'react-native';
-// Removed DateTimePicker - using simple text inputs instead
+import { launchCamera, launchImageLibrary, ImagePickerResponse, MediaType } from 'react-native-image-picker';
 import { Colors } from '../styles/colors';
 
 interface TaskWorkModalProps {
@@ -30,13 +31,20 @@ export interface WorkSession {
   isActive: boolean;
 }
 
+export interface TaskPhoto {
+  id: string;
+  uri: string;
+  description: string;
+  category: 'before' | 'during' | 'after';
+  timestamp: string;
+  fileSize: number;
+}
+
 export interface TaskWorkData {
   description: string;
   status: 'pending' | 'in_progress' | 'completed';
   sessions: WorkSession[];
-  beforePhoto?: string;
-  duringPhoto?: string;
-  afterPhoto?: string;
+  photos: TaskPhoto[];
   notes?: string;
 }
 
@@ -50,8 +58,16 @@ const TaskWorkModal: React.FC<TaskWorkModalProps> = ({
   const [notes, setNotes] = useState('');
   const [status, setStatus] = useState<'pending' | 'in_progress' | 'completed'>('pending');
   const [sessions, setSessions] = useState<WorkSession[]>([]);
+  const [photos, setPhotos] = useState<TaskPhoto[]>([]);
   const [showAddSession, setShowAddSession] = useState(false);
   const [editingSession, setEditingSession] = useState<WorkSession | null>(null);
+  
+  // Photo modal states
+  const [showPhotoModal, setShowPhotoModal] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState<'before' | 'during' | 'after'>('before');
+  const [showDescriptionModal, setShowDescriptionModal] = useState(false);
+  const [tempPhotoUri, setTempPhotoUri] = useState<string>('');
+  const [photoDescription, setPhotoDescription] = useState('');
   
   // Simple text input state for session entry  
   const [startDateText, setStartDateText] = useState(() => {
@@ -104,11 +120,13 @@ const TaskWorkModal: React.FC<TaskWorkModalProps> = ({
         setNotes(existingTaskData.notes || '');
         setStatus(existingTaskData.status);
         setSessions(existingTaskData.sessions || []);
+        setPhotos(existingTaskData.photos || []);
       } else {
         // Reset for new task
         setNotes('');
         setStatus('pending');
         setSessions([]);
+        setPhotos([]);
       }
     }
   }, [visible, taskDescription, existingTaskData]);
@@ -139,6 +157,102 @@ const TaskWorkModal: React.FC<TaskWorkModalProps> = ({
   const isValidTime = (timeStr: string) => {
     const regex = /^\d{1,2}:\d{2}\s(AM|PM)$/;
     return regex.test(timeStr);
+  };
+
+  // Photo handling functions
+  const getPhotosForCategory = (category: 'before' | 'during' | 'after') => {
+    return photos.filter(photo => photo.category === category);
+  };
+
+  const canAddMorePhotos = (category: 'before' | 'during' | 'after') => {
+    return getPhotosForCategory(category).length < 10;
+  };
+
+  const validateTaskPhotos = () => {
+    const beforePhotos = getPhotosForCategory('before');
+    const afterPhotos = getPhotosForCategory('after');
+    
+    return {
+      isValid: beforePhotos.length >= 1 && afterPhotos.length >= 1,
+      missingBefore: beforePhotos.length === 0,
+      missingAfter: afterPhotos.length === 0
+    };
+  };
+
+  const showPhotoSourceModal = (category: 'before' | 'during' | 'after') => {
+    if (!canAddMorePhotos(category)) {
+      Alert.alert('Photo Limit', `Maximum 10 ${category} photos allowed`);
+      return;
+    }
+    
+    setSelectedCategory(category);
+    setShowPhotoModal(true);
+  };
+
+  const selectPhotoSource = (source: 'camera' | 'gallery') => {
+    setShowPhotoModal(false);
+    
+    const options = {
+      mediaType: 'photo' as MediaType,
+      quality: 0.8,
+      maxWidth: 1920,
+      maxHeight: 1920,
+    };
+
+    const callback = (response: ImagePickerResponse) => {
+      if (response.didCancel || response.errorMessage) {
+        return;
+      }
+
+      if (response.assets && response.assets[0]) {
+        const asset = response.assets[0];
+        setTempPhotoUri(asset.uri || '');
+        setPhotoDescription('');
+        setShowDescriptionModal(true);
+      }
+    };
+
+    if (source === 'camera') {
+      launchCamera(options, callback);
+    } else {
+      launchImageLibrary(options, callback);
+    }
+  };
+
+  const savePhotoWithDescription = () => {
+    if (!photoDescription.trim()) {
+      Alert.alert('Description Required', 'Please enter a description for this photo');
+      return;
+    }
+
+    const newPhoto: TaskPhoto = {
+      id: `photo_${Date.now()}`,
+      uri: tempPhotoUri,
+      description: photoDescription.trim(),
+      category: selectedCategory,
+      timestamp: new Date().toISOString(),
+      fileSize: 0, // We'll calculate this later if needed
+    };
+
+    setPhotos(prev => [...prev, newPhoto]);
+    setShowDescriptionModal(false);
+    setTempPhotoUri('');
+    setPhotoDescription('');
+  };
+
+  const deletePhoto = (photoId: string) => {
+    Alert.alert(
+      'Delete Photo',
+      'Are you sure you want to delete this photo?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { 
+          text: 'Delete', 
+          style: 'destructive',
+          onPress: () => setPhotos(prev => prev.filter(p => p.id !== photoId))
+        }
+      ]
+    );
   };
 
   const handleStatusChange = (newStatus: 'pending' | 'in_progress' | 'completed') => {
@@ -227,10 +341,31 @@ const TaskWorkModal: React.FC<TaskWorkModalProps> = ({
   };
 
   const handleSave = () => {
+    // Validate photos if task is completed
+    if (status === 'completed') {
+      const photoValidation = validateTaskPhotos();
+      if (!photoValidation.isValid) {
+        let message = 'Task completion requires:\n';
+        if (photoValidation.missingBefore) message += '• At least 1 Before photo\n';
+        if (photoValidation.missingAfter) message += '• At least 1 After photo\n';
+        
+        Alert.alert('Photos Required', message, [
+          { text: 'Continue Anyway', onPress: () => saveTask() },
+          { text: 'Add Photos', style: 'cancel' }
+        ]);
+        return;
+      }
+    }
+    
+    saveTask();
+  };
+
+  const saveTask = () => {
     const taskData: TaskWorkData = {
       description: taskDescription,
       status,
       sessions,
+      photos,
       notes,
     };
 
@@ -319,27 +454,107 @@ const TaskWorkModal: React.FC<TaskWorkModalProps> = ({
           )}
 
           {/* Photos Section */}
-          {(status === 'in_progress' || status === 'completed') && (
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>📸 Photos</Text>
-              <View style={styles.photoRow}>
-                <TouchableOpacity style={styles.photoButton}>
-                  <Text style={styles.photoButtonText}>📷 Before</Text>
-                </TouchableOpacity>
-                {status === 'completed' && (
-                  <>
-                    <TouchableOpacity style={styles.photoButton}>
-                      <Text style={styles.photoButtonText}>📷 During</Text>
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>📸 Task Photos</Text>
+            
+            {/* Photo Categories */}
+            <View style={styles.photoCategoriesContainer}>
+              {/* Before Photos */}
+              <View style={styles.photoCategorySection}>
+                <View style={styles.photoCategoryHeader}>
+                  <Text style={styles.photoCategoryTitle}>Before ({getPhotosForCategory('before').length}/10)</Text>
+                  {getPhotosForCategory('before').length === 0 && (
+                    <Text style={styles.requiredLabel}>Required</Text>
+                  )}
+                </View>
+                <View style={styles.photoGrid}>
+                  {getPhotosForCategory('before').map(photo => (
+                    <TouchableOpacity 
+                      key={photo.id} 
+                      style={styles.photoThumbnail}
+                      onLongPress={() => deletePhoto(photo.id)}
+                    >
+                      <Image source={{ uri: photo.uri }} style={styles.photoImage} />
+                      <Text style={styles.photoDescription} numberOfLines={2}>{photo.description}</Text>
                     </TouchableOpacity>
-                    <TouchableOpacity style={styles.photoButton}>
-                      <Text style={styles.photoButtonText}>📷 After</Text>
+                  ))}
+                  {canAddMorePhotos('before') && (
+                    <TouchableOpacity 
+                      style={styles.addPhotoButton}
+                      onPress={() => showPhotoSourceModal('before')}
+                    >
+                      <Text style={styles.addPhotoText}>📷</Text>
+                      <Text style={styles.addPhotoLabel}>Add</Text>
                     </TouchableOpacity>
-                  </>
-                )}
+                  )}
+                </View>
               </View>
-              <Text style={styles.photoNote}>Photo upload coming soon</Text>
+
+              {/* During Photos */}
+              <View style={styles.photoCategorySection}>
+                <View style={styles.photoCategoryHeader}>
+                  <Text style={styles.photoCategoryTitle}>During ({getPhotosForCategory('during').length}/10)</Text>
+                  <Text style={styles.optionalLabel}>Optional</Text>
+                </View>
+                <View style={styles.photoGrid}>
+                  {getPhotosForCategory('during').map(photo => (
+                    <TouchableOpacity 
+                      key={photo.id} 
+                      style={styles.photoThumbnail}
+                      onLongPress={() => deletePhoto(photo.id)}
+                    >
+                      <Image source={{ uri: photo.uri }} style={styles.photoImage} />
+                      <Text style={styles.photoDescription} numberOfLines={2}>{photo.description}</Text>
+                    </TouchableOpacity>
+                  ))}
+                  {canAddMorePhotos('during') && (
+                    <TouchableOpacity 
+                      style={styles.addPhotoButton}
+                      onPress={() => showPhotoSourceModal('during')}
+                    >
+                      <Text style={styles.addPhotoText}>📷</Text>
+                      <Text style={styles.addPhotoLabel}>Add</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+              </View>
+
+              {/* After Photos */}
+              <View style={styles.photoCategorySection}>
+                <View style={styles.photoCategoryHeader}>
+                  <Text style={styles.photoCategoryTitle}>After ({getPhotosForCategory('after').length}/10)</Text>
+                  {getPhotosForCategory('after').length === 0 && (
+                    <Text style={styles.requiredLabel}>Required</Text>
+                  )}
+                </View>
+                <View style={styles.photoGrid}>
+                  {getPhotosForCategory('after').map(photo => (
+                    <TouchableOpacity 
+                      key={photo.id} 
+                      style={styles.photoThumbnail}
+                      onLongPress={() => deletePhoto(photo.id)}
+                    >
+                      <Image source={{ uri: photo.uri }} style={styles.photoImage} />
+                      <Text style={styles.photoDescription} numberOfLines={2}>{photo.description}</Text>
+                    </TouchableOpacity>
+                  ))}
+                  {canAddMorePhotos('after') && (
+                    <TouchableOpacity 
+                      style={styles.addPhotoButton}
+                      onPress={() => showPhotoSourceModal('after')}
+                    >
+                      <Text style={styles.addPhotoText}>📷</Text>
+                      <Text style={styles.addPhotoLabel}>Add</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+              </View>
             </View>
-          )}
+            
+            <Text style={styles.photoInstructions}>
+              Long press photos to delete • Descriptions required for all photos
+            </Text>
+          </View>
 
           {/* Remarks */}
           <View style={styles.section}>
@@ -535,6 +750,84 @@ const TaskWorkModal: React.FC<TaskWorkModalProps> = ({
                 </TouchableOpacity>
               </View>
               </ScrollView>
+            </View>
+          </View>
+        </Modal>
+      )}
+
+      {/* Photo Source Selection Modal */}
+      {showPhotoModal && (
+        <Modal transparent animationType="fade">
+          <View style={styles.modalOverlay}>
+            <View style={styles.photoSourceModal}>
+              <Text style={styles.photoSourceTitle}>Add {selectedCategory} Photo</Text>
+              
+              <TouchableOpacity 
+                style={styles.photoSourceButton}
+                onPress={() => selectPhotoSource('camera')}
+              >
+                <Text style={styles.photoSourceButtonText}>📷 Take Photo</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity 
+                style={styles.photoSourceButton}
+                onPress={() => selectPhotoSource('gallery')}
+              >
+                <Text style={styles.photoSourceButtonText}>🖼️ Choose from Gallery</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity 
+                style={[styles.photoSourceButton, styles.cancelPhotoButton]}
+                onPress={() => setShowPhotoModal(false)}
+              >
+                <Text style={styles.cancelPhotoButtonText}>Cancel</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
+      )}
+
+      {/* Photo Description Modal */}
+      {showDescriptionModal && (
+        <Modal transparent animationType="fade">
+          <View style={styles.modalOverlay}>
+            <View style={styles.descriptionModal}>
+              <Text style={styles.descriptionModalTitle}>Add Photo Description</Text>
+              
+              {tempPhotoUri && (
+                <Image source={{ uri: tempPhotoUri }} style={styles.previewImage} />
+              )}
+              
+              <TextInput
+                style={styles.descriptionInput}
+                value={photoDescription}
+                onChangeText={setPhotoDescription}
+                placeholder="Describe what this photo shows..."
+                placeholderTextColor={Colors.textSecondary}
+                multiline
+                numberOfLines={3}
+                autoFocus
+              />
+              
+              <View style={styles.descriptionModalButtons}>
+                <TouchableOpacity 
+                  style={styles.descriptionSaveButton}
+                  onPress={savePhotoWithDescription}
+                >
+                  <Text style={styles.descriptionSaveButtonText}>Save Photo</Text>
+                </TouchableOpacity>
+                
+                <TouchableOpacity 
+                  style={styles.descriptionCancelButton}
+                  onPress={() => {
+                    setShowDescriptionModal(false);
+                    setTempPhotoUri('');
+                    setPhotoDescription('');
+                  }}
+                >
+                  <Text style={styles.descriptionCancelButtonText}>Cancel</Text>
+                </TouchableOpacity>
+              </View>
             </View>
           </View>
         </Modal>
@@ -859,6 +1152,196 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: Colors.text,
     backgroundColor: Colors.white,
+  },
+  // Photo styles
+  photoCategoriesContainer: {
+    marginBottom: 12,
+  },
+  photoCategorySection: {
+    marginBottom: 16,
+  },
+  photoCategoryHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  photoCategoryTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: Colors.text,
+  },
+  requiredLabel: {
+    fontSize: 12,
+    color: Colors.tech,
+    fontWeight: '500',
+    backgroundColor: 'rgba(220, 38, 38, 0.1)',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 10,
+  },
+  optionalLabel: {
+    fontSize: 12,
+    color: Colors.textSecondary,
+    fontWeight: '500',
+    backgroundColor: Colors.cardBackground,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 10,
+  },
+  photoGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  photoThumbnail: {
+    width: 80,
+    height: 80,
+    borderRadius: 8,
+    overflow: 'hidden',
+    backgroundColor: Colors.cardBackground,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  photoImage: {
+    width: '100%',
+    height: 60,
+    resizeMode: 'cover',
+  },
+  photoDescription: {
+    fontSize: 10,
+    color: Colors.text,
+    padding: 4,
+    lineHeight: 12,
+  },
+  addPhotoButton: {
+    width: 80,
+    height: 80,
+    borderRadius: 8,
+    borderWidth: 2,
+    borderColor: Colors.border,
+    borderStyle: 'dashed',
+    backgroundColor: Colors.cardBackground,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  addPhotoText: {
+    fontSize: 24,
+    color: Colors.textSecondary,
+  },
+  addPhotoLabel: {
+    fontSize: 11,
+    color: Colors.textSecondary,
+    fontWeight: '500',
+    marginTop: 2,
+  },
+  photoInstructions: {
+    fontSize: 12,
+    color: Colors.textSecondary,
+    fontStyle: 'italic',
+    textAlign: 'center',
+    marginTop: 8,
+  },
+  // Photo source modal styles
+  photoSourceModal: {
+    backgroundColor: Colors.white,
+    borderRadius: 12,
+    padding: 20,
+    margin: 20,
+    minWidth: 280,
+  },
+  photoSourceTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: Colors.text,
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  photoSourceButton: {
+    backgroundColor: Colors.tech,
+    borderRadius: 8,
+    paddingVertical: 12,
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  photoSourceButtonText: {
+    color: Colors.white,
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  cancelPhotoButton: {
+    backgroundColor: Colors.cardBackground,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  cancelPhotoButtonText: {
+    color: Colors.textSecondary,
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  // Description modal styles
+  descriptionModal: {
+    backgroundColor: Colors.white,
+    borderRadius: 12,
+    padding: 20,
+    margin: 20,
+    maxWidth: '90%',
+    minWidth: 320,
+  },
+  descriptionModalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: Colors.text,
+    textAlign: 'center',
+    marginBottom: 16,
+  },
+  previewImage: {
+    width: '100%',
+    height: 200,
+    borderRadius: 8,
+    marginBottom: 16,
+    resizeMode: 'cover',
+  },
+  descriptionInput: {
+    borderWidth: 1,
+    borderColor: Colors.border,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 16,
+    color: Colors.text,
+    backgroundColor: Colors.white,
+    textAlignVertical: 'top',
+    minHeight: 80,
+    marginBottom: 16,
+  },
+  descriptionModalButtons: {
+    flexDirection: 'column',
+    gap: 10,
+  },
+  descriptionSaveButton: {
+    backgroundColor: Colors.tech,
+    borderRadius: 8,
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  descriptionSaveButtonText: {
+    color: Colors.white,
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  descriptionCancelButton: {
+    backgroundColor: Colors.cardBackground,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    borderRadius: 8,
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  descriptionCancelButtonText: {
+    color: Colors.textSecondary,
+    fontSize: 16,
+    fontWeight: '600',
   },
 });
 
