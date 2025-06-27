@@ -180,23 +180,27 @@ const TaskWorkModal: React.FC<TaskWorkModalProps> = ({
   };
 
   const showPhotoSourceModal = (category: 'before' | 'during' | 'after') => {
+    console.log(`Attempting to add ${category} photo`);
+    
     if (!canAddMorePhotos(category)) {
       Alert.alert('Photo Limit', `Maximum 10 ${category} photos allowed`);
       return;
     }
     
+    console.log(`Setting selected category to: ${category}`);
     setSelectedCategory(category);
     setShowPhotoModal(true);
   };
 
   const selectPhotoSource = (source: 'camera' | 'gallery') => {
+    console.log(`Selecting photo source: ${source} for category: ${selectedCategory}`);
     setShowPhotoModal(false);
     
     const options = {
       mediaType: 'photo' as MediaType,
       quality: 0.8,
-      maxWidth: 1920,
-      maxHeight: 1920,
+      maxWidth: 1024,
+      maxHeight: 1024,
       includeBase64: false,
       includeExtra: false,
     };
@@ -258,7 +262,12 @@ const TaskWorkModal: React.FC<TaskWorkModalProps> = ({
       fileSize: 0, // We'll calculate this later if needed
     };
 
-    setPhotos(prev => [...prev, newPhoto]);
+    console.log(`Saving ${selectedCategory} photo:`, newPhoto);
+    setPhotos(prev => {
+      const updatedPhotos = [...prev, newPhoto];
+      console.log('Updated photos array:', updatedPhotos);
+      return updatedPhotos;
+    });
     setShowDescriptionModal(false);
     setTempPhotoUri('');
     setPhotoDescription('');
@@ -477,9 +486,10 @@ const TaskWorkModal: React.FC<TaskWorkModalProps> = ({
             </View>
           )}
 
-          {/* Photos Section */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>📸 Task Photos</Text>
+          {/* Photos Section - Only show when task is in progress or completed */}
+          {(status === 'in_progress' || status === 'completed') && (
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>📸 Task Photos</Text>
             
             {/* Photo Categories */}
             <View style={styles.photoCategoriesContainer}>
@@ -578,7 +588,8 @@ const TaskWorkModal: React.FC<TaskWorkModalProps> = ({
             <Text style={styles.photoInstructions}>
               Long press photos to delete • Descriptions required for all photos
             </Text>
-          </View>
+            </View>
+          )}
 
           {/* Remarks */}
           <View style={styles.section}>
