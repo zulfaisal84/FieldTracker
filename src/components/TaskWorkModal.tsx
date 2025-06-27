@@ -197,25 +197,49 @@ const TaskWorkModal: React.FC<TaskWorkModalProps> = ({
       quality: 0.8,
       maxWidth: 1920,
       maxHeight: 1920,
+      includeBase64: false,
+      includeExtra: false,
     };
 
     const callback = (response: ImagePickerResponse) => {
-      if (response.didCancel || response.errorMessage) {
+      console.log('ImagePicker Response:', response);
+      
+      if (response.didCancel) {
+        console.log('User cancelled photo selection');
+        return;
+      }
+      
+      if (response.errorMessage) {
+        console.log('ImagePicker Error:', response.errorMessage);
+        Alert.alert('Photo Error', response.errorMessage);
         return;
       }
 
       if (response.assets && response.assets[0]) {
         const asset = response.assets[0];
-        setTempPhotoUri(asset.uri || '');
-        setPhotoDescription('');
-        setShowDescriptionModal(true);
+        console.log('Selected asset:', asset);
+        
+        if (asset.uri) {
+          setTempPhotoUri(asset.uri);
+          setPhotoDescription('');
+          setShowDescriptionModal(true);
+        } else {
+          Alert.alert('Photo Error', 'Failed to get photo. Please try again.');
+        }
+      } else {
+        Alert.alert('Photo Error', 'No photo selected. Please try again.');
       }
     };
 
-    if (source === 'camera') {
-      launchCamera(options, callback);
-    } else {
-      launchImageLibrary(options, callback);
+    try {
+      if (source === 'camera') {
+        launchCamera(options, callback);
+      } else {
+        launchImageLibrary(options, callback);
+      }
+    } catch (error) {
+      console.log('Photo launch error:', error);
+      Alert.alert('Photo Error', 'Failed to open photo picker. Please try again.');
     }
   };
 
