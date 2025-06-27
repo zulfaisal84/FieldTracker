@@ -14,7 +14,7 @@ import {
 } from 'react-native';
 import { Colors } from '../styles/colors';
 import { useApp } from '../context/AppContext';
-import { JobStatus } from '../types';
+import { JobStatus, TaskPhoto } from '../types';
 import TaskWorkModal, { TaskWorkData } from '../components/TaskWorkModal';
 
 interface JobDetailScreenProps {
@@ -23,11 +23,17 @@ interface JobDetailScreenProps {
 }
 
 const JobDetailScreen: React.FC<JobDetailScreenProps> = ({ jobId, onBack }) => {
-  const { currentUser, jobs, startJob, completeJob, submitJob, cancelJob, addPendingTask, updateTaskStatus } = useApp();
+  const { currentUser, jobs, startJob, completeJob, submitJob, cancelJob, addPendingTask, updateTaskStatus, updateTask } = useApp();
   const [showTaskModal, setShowTaskModal] = useState(false);
   const [selectedTask, setSelectedTask] = useState<string>('');
   const [showAddTaskModal, setShowAddTaskModal] = useState(false);
   const [newTaskDescription, setNewTaskDescription] = useState('');
+  const [showPhotoModal, setShowPhotoModal] = useState(false);
+  const [selectedPhoto, setSelectedPhoto] = useState<TaskPhoto | null>(null);
+  const [allPhotos, setAllPhotos] = useState<TaskPhoto[]>([]);
+  const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
+  const [isEditingDescription, setIsEditingDescription] = useState(false);
+  const [editingDescription, setEditingDescription] = useState('');
   
   const job = jobs[jobId];
 
@@ -160,6 +166,71 @@ const JobDetailScreen: React.FC<JobDetailScreenProps> = ({ jobId, onBack }) => {
   };
 
   const actionButton = getActionButton();
+
+  // Photo modal functions
+  const openPhotoModal = (photo: TaskPhoto, allTaskPhotos: TaskPhoto[]) => {
+    const photoIndex = allTaskPhotos.findIndex(p => p.id === photo.id);
+    setSelectedPhoto(photo);
+    setAllPhotos(allTaskPhotos);
+    setCurrentPhotoIndex(photoIndex);
+    setIsEditingDescription(false);
+    setEditingDescription('');
+    setShowPhotoModal(true);
+  };
+
+  const startEditingDescription = () => {
+    if (selectedPhoto) {
+      setEditingDescription(selectedPhoto.description);
+      setIsEditingDescription(true);
+    }
+  };
+
+  const saveDescriptionEdit = () => {
+    if (selectedPhoto && editingDescription.trim()) {
+      // Find the task that contains this photo
+      const taskWithPhoto = job.tasks.find(task => 
+        task.photos?.some(photo => photo.id === selectedPhoto.id)
+      );
+      
+      if (taskWithPhoto) {
+        // Update the photo description in the task
+        const updatedPhotos = taskWithPhoto.photos.map(photo => 
+          photo.id === selectedPhoto.id 
+            ? { ...photo, description: editingDescription.trim() }
+            : photo
+        );
+        
+        // Update the task with new photos
+        updateTask(jobId, taskWithPhoto.id, { photos: updatedPhotos });
+        
+        // Update local state
+        const updatedPhoto = { ...selectedPhoto, description: editingDescription.trim() };
+        setSelectedPhoto(updatedPhoto);
+        
+        const updatedAllPhotos = allPhotos.map(photo => 
+          photo.id === selectedPhoto.id ? updatedPhoto : photo
+        );
+        setAllPhotos(updatedAllPhotos);
+        
+        Alert.alert('Success', 'Photo description updated!');
+      }
+    }
+    setIsEditingDescription(false);
+  };
+
+  const cancelDescriptionEdit = () => {
+    setIsEditingDescription(false);
+    setEditingDescription('');
+  };
+
+  const navigatePhoto = (direction: 'prev' | 'next') => {
+    const newIndex = direction === 'prev' 
+      ? (currentPhotoIndex - 1 + allPhotos.length) % allPhotos.length
+      : (currentPhotoIndex + 1) % allPhotos.length;
+    
+    setCurrentPhotoIndex(newIndex);
+    setSelectedPhoto(allPhotos[newIndex]);
+  };
 
   return (
     <View style={styles.container}>
@@ -305,12 +376,16 @@ const JobDetailScreen: React.FC<JobDetailScreenProps> = ({ jobId, onBack }) => {
                         <Text style={styles.photoCategoryTitle}>Before ({task.photos.filter(p => p.category === 'before').length})</Text>
                         <View style={styles.photoGrid}>
                           {task.photos.filter(p => p.category === 'before').map((photo) => (
-                            <View key={photo.id} style={styles.photoThumbnail}>
+                            <TouchableOpacity 
+                              key={photo.id} 
+                              style={styles.photoThumbnail}
+                              onPress={() => openPhotoModal(photo, task.photos)}
+                            >
                               <Image source={{ uri: photo.uri }} style={styles.photoImage} />
                               <Text style={styles.photoLabel} numberOfLines={2}>
                                 {photo.description}
                               </Text>
-                            </View>
+                            </TouchableOpacity>
                           ))}
                         </View>
                       </View>
@@ -322,12 +397,16 @@ const JobDetailScreen: React.FC<JobDetailScreenProps> = ({ jobId, onBack }) => {
                         <Text style={styles.photoCategoryTitle}>During ({task.photos.filter(p => p.category === 'during').length})</Text>
                         <View style={styles.photoGrid}>
                           {task.photos.filter(p => p.category === 'during').map((photo) => (
-                            <View key={photo.id} style={styles.photoThumbnail}>
+                            <TouchableOpacity 
+                              key={photo.id} 
+                              style={styles.photoThumbnail}
+                              onPress={() => openPhotoModal(photo, task.photos)}
+                            >
                               <Image source={{ uri: photo.uri }} style={styles.photoImage} />
                               <Text style={styles.photoLabel} numberOfLines={2}>
                                 {photo.description}
                               </Text>
-                            </View>
+                            </TouchableOpacity>
                           ))}
                         </View>
                       </View>
@@ -339,12 +418,16 @@ const JobDetailScreen: React.FC<JobDetailScreenProps> = ({ jobId, onBack }) => {
                         <Text style={styles.photoCategoryTitle}>After ({task.photos.filter(p => p.category === 'after').length})</Text>
                         <View style={styles.photoGrid}>
                           {task.photos.filter(p => p.category === 'after').map((photo) => (
-                            <View key={photo.id} style={styles.photoThumbnail}>
+                            <TouchableOpacity 
+                              key={photo.id} 
+                              style={styles.photoThumbnail}
+                              onPress={() => openPhotoModal(photo, task.photos)}
+                            >
                               <Image source={{ uri: photo.uri }} style={styles.photoImage} />
                               <Text style={styles.photoLabel} numberOfLines={2}>
                                 {photo.description}
                               </Text>
-                            </View>
+                            </TouchableOpacity>
                           ))}
                         </View>
                       </View>
@@ -406,12 +489,16 @@ const JobDetailScreen: React.FC<JobDetailScreenProps> = ({ jobId, onBack }) => {
                                 <Text style={styles.inlinePhotoCategoryTitle}>Before ({task.photos.filter(p => p.category === 'before').length})</Text>
                                 <View style={styles.inlinePhotoGrid}>
                                   {task.photos.filter(p => p.category === 'before').map((photo) => (
-                                    <View key={photo.id} style={styles.inlinePhotoThumbnail}>
+                                    <TouchableOpacity 
+                                      key={photo.id} 
+                                      style={styles.inlinePhotoThumbnail}
+                                      onPress={() => openPhotoModal(photo, task.photos)}
+                                    >
                                       <Image source={{ uri: photo.uri }} style={styles.inlinePhotoImage} />
                                       <Text style={styles.inlinePhotoLabel} numberOfLines={2}>
                                         {photo.description}
                                       </Text>
-                                    </View>
+                                    </TouchableOpacity>
                                   ))}
                                 </View>
                               </View>
@@ -423,12 +510,16 @@ const JobDetailScreen: React.FC<JobDetailScreenProps> = ({ jobId, onBack }) => {
                                 <Text style={styles.inlinePhotoCategoryTitle}>During ({task.photos.filter(p => p.category === 'during').length})</Text>
                                 <View style={styles.inlinePhotoGrid}>
                                   {task.photos.filter(p => p.category === 'during').map((photo) => (
-                                    <View key={photo.id} style={styles.inlinePhotoThumbnail}>
+                                    <TouchableOpacity 
+                                      key={photo.id} 
+                                      style={styles.inlinePhotoThumbnail}
+                                      onPress={() => openPhotoModal(photo, task.photos)}
+                                    >
                                       <Image source={{ uri: photo.uri }} style={styles.inlinePhotoImage} />
                                       <Text style={styles.inlinePhotoLabel} numberOfLines={2}>
                                         {photo.description}
                                       </Text>
-                                    </View>
+                                    </TouchableOpacity>
                                   ))}
                                 </View>
                               </View>
@@ -440,12 +531,16 @@ const JobDetailScreen: React.FC<JobDetailScreenProps> = ({ jobId, onBack }) => {
                                 <Text style={styles.inlinePhotoCategoryTitle}>After ({task.photos.filter(p => p.category === 'after').length})</Text>
                                 <View style={styles.inlinePhotoGrid}>
                                   {task.photos.filter(p => p.category === 'after').map((photo) => (
-                                    <View key={photo.id} style={styles.inlinePhotoThumbnail}>
+                                    <TouchableOpacity 
+                                      key={photo.id} 
+                                      style={styles.inlinePhotoThumbnail}
+                                      onPress={() => openPhotoModal(photo, task.photos)}
+                                    >
                                       <Image source={{ uri: photo.uri }} style={styles.inlinePhotoImage} />
                                       <Text style={styles.inlinePhotoLabel} numberOfLines={2}>
                                         {photo.description}
                                       </Text>
-                                    </View>
+                                    </TouchableOpacity>
                                   ))}
                                 </View>
                               </View>
@@ -614,6 +709,123 @@ const JobDetailScreen: React.FC<JobDetailScreenProps> = ({ jobId, onBack }) => {
                 >
                   <Text style={styles.addTaskButtonSecondaryText}>Cancel</Text>
                 </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
+      )}
+
+      {/* Photo Detail Modal */}
+      {showPhotoModal && selectedPhoto && (
+        <Modal visible={true} animationType="fade" presentationStyle="fullScreen">
+          <View style={styles.photoModalContainer}>
+            {/* Header */}
+            <View style={styles.photoModalHeader}>
+              <TouchableOpacity 
+                style={styles.photoModalCloseButton}
+                onPress={() => setShowPhotoModal(false)}
+              >
+                <Text style={styles.photoModalCloseText}>✕</Text>
+              </TouchableOpacity>
+              
+              <View style={styles.photoModalHeaderInfo}>
+                <Text style={styles.photoModalCategory}>
+                  {selectedPhoto.category.charAt(0).toUpperCase() + selectedPhoto.category.slice(1)} Photo
+                </Text>
+                <Text style={styles.photoModalCounter}>
+                  {currentPhotoIndex + 1} of {allPhotos.length}
+                </Text>
+              </View>
+              
+              <View style={styles.photoModalHeaderSpacer} />
+            </View>
+
+            {/* Photo */}
+            <View style={styles.photoModalImageContainer}>
+              <Image 
+                source={{ uri: selectedPhoto.uri }} 
+                style={styles.photoModalImage}
+                resizeMode="contain"
+              />
+              
+              {/* Navigation Arrows */}
+              {allPhotos.length > 1 && (
+                <>
+                  <TouchableOpacity 
+                    style={[styles.photoModalNavButton, styles.photoModalNavLeft]}
+                    onPress={() => navigatePhoto('prev')}
+                  >
+                    <Text style={styles.photoModalNavText}>‹</Text>
+                  </TouchableOpacity>
+                  
+                  <TouchableOpacity 
+                    style={[styles.photoModalNavButton, styles.photoModalNavRight]}
+                    onPress={() => navigatePhoto('next')}
+                  >
+                    <Text style={styles.photoModalNavText}>›</Text>
+                  </TouchableOpacity>
+                </>
+              )}
+            </View>
+
+            {/* Description */}
+            <View style={styles.photoModalDescription}>
+              <View style={styles.photoModalDescriptionHeader}>
+                <Text style={styles.photoModalDescriptionTitle}>Description</Text>
+                {!isEditingDescription && (
+                  <TouchableOpacity 
+                    style={styles.editDescriptionButton}
+                    onPress={startEditingDescription}
+                  >
+                    <Text style={styles.editDescriptionButtonText}>Edit</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+              
+              {isEditingDescription ? (
+                <View style={styles.descriptionEditContainer}>
+                  <TextInput
+                    style={styles.descriptionEditInput}
+                    value={editingDescription}
+                    onChangeText={setEditingDescription}
+                    placeholder="Enter photo description..."
+                    placeholderTextColor={Colors.textSecondary}
+                    multiline
+                    numberOfLines={3}
+                    autoFocus
+                  />
+                  <View style={styles.descriptionEditButtons}>
+                    <TouchableOpacity 
+                      style={[styles.descriptionEditButton, styles.descriptionSaveButton]}
+                      onPress={saveDescriptionEdit}
+                    >
+                      <Text style={styles.descriptionSaveButtonText}>Save</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity 
+                      style={[styles.descriptionEditButton, styles.descriptionCancelButton]}
+                      onPress={cancelDescriptionEdit}
+                    >
+                      <Text style={styles.descriptionCancelButtonText}>Cancel</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              ) : (
+                <TouchableOpacity onPress={startEditingDescription}>
+                  <Text style={styles.photoModalDescriptionText}>
+                    {selectedPhoto.description}
+                  </Text>
+                  <Text style={styles.tapToEditHint}>Tap to edit description</Text>
+                </TouchableOpacity>
+              )}
+              
+              {/* Metadata */}
+              <View style={styles.photoModalMetadata}>
+                <Text style={styles.photoModalMetadataText}>
+                  Taken: {new Date(selectedPhoto.timestamp).toLocaleString()}
+                </Text>
+                <Text style={styles.photoModalMetadataText}>
+                  Size: {(selectedPhoto.fileSize / (1024 * 1024)).toFixed(2)} MB
+                </Text>
               </View>
             </View>
           </View>
@@ -1099,6 +1311,171 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
     fontSize: 16,
     fontWeight: '600',
+  },
+  // Photo Modal Styles
+  photoModalContainer: {
+    flex: 1,
+    backgroundColor: 'black',
+  },
+  photoModalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingTop: Platform.OS === 'ios' ? 50 : 20,
+    paddingBottom: 16,
+    paddingHorizontal: 20,
+    backgroundColor: 'rgba(0, 0, 0, 0.9)',
+  },
+  photoModalCloseButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  photoModalCloseText: {
+    color: Colors.white,
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  photoModalHeaderInfo: {
+    alignItems: 'center',
+  },
+  photoModalCategory: {
+    color: Colors.white,
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  photoModalCounter: {
+    color: 'rgba(255, 255, 255, 0.7)',
+    fontSize: 14,
+    marginTop: 2,
+  },
+  photoModalHeaderSpacer: {
+    width: 40,
+  },
+  photoModalImageContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    position: 'relative',
+  },
+  photoModalImage: {
+    width: '100%',
+    height: '100%',
+  },
+  photoModalNavButton: {
+    position: 'absolute',
+    top: '50%',
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: -30,
+  },
+  photoModalNavLeft: {
+    left: 20,
+  },
+  photoModalNavRight: {
+    right: 20,
+  },
+  photoModalNavText: {
+    color: Colors.white,
+    fontSize: 30,
+    fontWeight: 'bold',
+  },
+  photoModalDescription: {
+    backgroundColor: 'rgba(0, 0, 0, 0.9)',
+    padding: 20,
+    paddingBottom: Platform.OS === 'ios' ? 34 : 20,
+  },
+  photoModalDescriptionTitle: {
+    color: Colors.white,
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginBottom: 8,
+  },
+  photoModalDescriptionText: {
+    color: 'rgba(255, 255, 255, 0.9)',
+    fontSize: 14,
+    lineHeight: 20,
+    marginBottom: 16,
+  },
+  photoModalMetadata: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  photoModalMetadataText: {
+    color: 'rgba(255, 255, 255, 0.6)',
+    fontSize: 12,
+  },
+  photoModalDescriptionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  editDescriptionButton: {
+    backgroundColor: 'rgba(59, 130, 246, 0.8)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 6,
+  },
+  editDescriptionButtonText: {
+    color: Colors.white,
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  descriptionEditContainer: {
+    marginTop: 8,
+  },
+  descriptionEditInput: {
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 14,
+    color: Colors.white,
+    textAlignVertical: 'top',
+    minHeight: 80,
+    marginBottom: 12,
+  },
+  descriptionEditButtons: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 8,
+  },
+  descriptionEditButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 6,
+  },
+  descriptionSaveButton: {
+    backgroundColor: '#10B981',
+  },
+  descriptionSaveButtonText: {
+    color: Colors.white,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  descriptionCancelButton: {
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+  },
+  descriptionCancelButtonText: {
+    color: Colors.white,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  tapToEditHint: {
+    color: 'rgba(255, 255, 255, 0.5)',
+    fontSize: 12,
+    fontStyle: 'italic',
+    marginTop: 4,
   },
 });
 
