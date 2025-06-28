@@ -165,6 +165,7 @@ const TaskWorkModal: React.FC<TaskWorkModalProps> = ({
   };
 
   const selectPhoto = (fromCamera: boolean) => {
+    console.log('selectPhoto called, fromCamera:', fromCamera);
     // Close source modal first
     setPhotoModalState('none');
     
@@ -173,10 +174,22 @@ const TaskWorkModal: React.FC<TaskWorkModalProps> = ({
       quality: 0.8,
       maxWidth: 2000,
       maxHeight: 2000,
+      includeBase64: false,
+      saveToPhotos: false,
+      selectionLimit: 1,
     };
 
     const callback = (response: ImagePickerResponse) => {
-      if (response.didCancel || response.errorMessage) {
+      console.log('Image picker response:', response);
+      
+      if (response.didCancel) {
+        console.log('User cancelled image picker');
+        return;
+      }
+      
+      if (response.errorMessage) {
+        console.log('Image picker error:', response.errorMessage);
+        Alert.alert('Error', `Image picker error: ${response.errorMessage}`);
         return;
       }
       
