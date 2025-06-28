@@ -15,6 +15,7 @@ interface AppContextType extends AppState {
   createJob: (title: string, siteLocation: string, description: string, assignedTechs: string[]) => string;
   updateJobStatus: (jobId: string, status: JobStatus) => void;
   startJob: (jobId: string) => void;
+  validateJobCompletion: (jobId: string) => { isValid: boolean; message: string };
   completeJob: (jobId: string) => boolean;
   submitJob: (jobId: string) => void;
   approveJob: (jobId: string) => void;
@@ -351,20 +352,46 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }
   };
 
-  const completeJob = (jobId: string): boolean => {
+  // New function to validate if all tasks are ready for submission (without changing job status)
+  const validateJobCompletion = (jobId: string): { isValid: boolean; message: string } => {
     const job = jobs[jobId];
-    if (!job) return false;
+    if (!job) return { isValid: false, message: 'Job not found' };
 
-    // Validate all tasks have required photos
-    const incompleteTasks = job.tasks.filter(task => 
-      !task.beforePhoto || !task.afterPhoto || !task.description || !task.endTime
-    );
-
+    // Check if all tasks are completed
+    const incompleteTasks = job.tasks.filter(task => task.status !== 'completed');
     if (incompleteTasks.length > 0) {
-      Alert.alert(
-        'Incomplete Tasks',
-        `Please complete all required fields for ${incompleteTasks.length} task(s)`
-      );
+      return { 
+        isValid: false, 
+        message: `${incompleteTasks.length} task(s) are not completed yet. Please complete all tasks first.` 
+      };
+    }
+
+    // Check if all completed tasks have required photos and sessions
+    const tasksWithMissingData = job.tasks.filter(task => {
+      if (task.status !== 'completed') return false;
+      
+      const beforePhotos = task.photos?.filter(p => p.category === 'before') || [];
+      const afterPhotos = task.photos?.filter(p => p.category === 'after') || [];
+      const completedSessions = task.sessions?.filter(s => !s.isActive) || [];
+      
+      return beforePhotos.length === 0 || afterPhotos.length === 0 || completedSessions.length === 0;
+    });
+
+    if (tasksWithMissingData.length > 0) {
+      return { 
+        isValid: false, 
+        message: `${tasksWithMissingData.length} completed task(s) are missing required photos or work sessions.` 
+      };
+    }
+
+    return { isValid: true, message: 'All tasks completed successfully!' };
+  };
+
+  const completeJob = (jobId: string): boolean => {
+    const validation = validateJobCompletion(jobId);
+    
+    if (!validation.isValid) {
+      Alert.alert('Cannot Complete Job', validation.message);
       return false;
     }
 
@@ -691,6 +718,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     createJob,
     updateJobStatus,
     startJob,
+    validateJobCompletion,
     completeJob,
     submitJob,
     approveJob,

@@ -681,19 +681,11 @@ const TaskWorkModal: React.FC<TaskWorkModalProps> = ({
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>📄 Remarks (Optional)</Text>
             <TextInput
-              style={[
-                styles.notesInput,
-                status === 'pending' && styles.disabledInput
-              ]}
+              style={styles.notesInput}
               value={notes}
-              onChangeText={status === 'pending' ? undefined : setNotes}
-              placeholder={
-                status === 'pending' 
-                  ? "Start work to add remarks..." 
-                  : "Add any additional remarks about this task..."
-              }
+              onChangeText={setNotes}
+              placeholder="Add any additional remarks about this task..."
               placeholderTextColor={Colors.textSecondary}
-              editable={status !== 'pending'}
               multiline
               numberOfLines={3}
             />
@@ -772,19 +764,11 @@ const TaskWorkModal: React.FC<TaskWorkModalProps> = ({
               styles.bottomButton, 
               styles.saveButton,
               // If no Start/Complete button, make Save button full width
-              status === 'completed' && styles.fullWidthButton,
-              // Disable Save button when task is pending
-              status === 'pending' && styles.disabledButton
+              status === 'completed' && styles.fullWidthButton
             ]}
-            onPress={status === 'pending' ? undefined : handleSave}
-            disabled={status === 'pending'}
+            onPress={handleSave}
           >
-            <Text style={[
-              styles.bottomButtonText,
-              status === 'pending' && styles.disabledButtonText
-            ]}>
-              💾 Save{status === 'pending' ? ' (Start work first)' : ''}
-            </Text>
+            <Text style={styles.bottomButtonText}>💾 Save</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -1095,20 +1079,6 @@ const styles = StyleSheet.create({
   },
   fullWidthButton: {
     flex: 2, // Take full width when Start/Complete button is hidden
-  },
-  disabledButton: {
-    backgroundColor: Colors.cardBackground,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    opacity: 0.6,
-  },
-  disabledButtonText: {
-    color: Colors.textSecondary,
-  },
-  disabledInput: {
-    backgroundColor: Colors.cardBackground,
-    borderColor: Colors.border,
-    opacity: 0.7,
   },
   sessionCard: {
     backgroundColor: Colors.white,

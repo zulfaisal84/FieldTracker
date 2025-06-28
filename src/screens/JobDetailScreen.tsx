@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -23,7 +23,7 @@ interface JobDetailScreenProps {
 }
 
 const JobDetailScreen: React.FC<JobDetailScreenProps> = ({ jobId, onBack }) => {
-  const { currentUser, jobs, startJob, completeJob, submitJob, cancelJob, addPendingTask, updateTaskStatus, updateTask } = useApp();
+  const { currentUser, jobs, startJob, validateJobCompletion, completeJob, submitJob, cancelJob, addPendingTask, updateTaskStatus, updateTask } = useApp();
   const [showTaskModal, setShowTaskModal] = useState(false);
   const [selectedTask, setSelectedTask] = useState<string>('');
   const [showAddTaskModal, setShowAddTaskModal] = useState(false);
@@ -34,8 +34,19 @@ const JobDetailScreen: React.FC<JobDetailScreenProps> = ({ jobId, onBack }) => {
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
   const [isEditingDescription, setIsEditingDescription] = useState(false);
   const [editingDescription, setEditingDescription] = useState('');
+  const [isReadyForSubmission, setIsReadyForSubmission] = useState(false);
   
   const job = jobs[jobId];
+
+  // Reset ready for submission state when tasks change
+  useEffect(() => {
+    if (job && job.status === 'In Progress') {
+      const validation = validateJobCompletion(jobId);
+      setIsReadyForSubmission(validation.isValid);
+    } else {
+      setIsReadyForSubmission(false);
+    }
+  }, [job?.tasks, jobId, validateJobCompletion]);
 
   if (!job) {
     return (
@@ -104,12 +115,23 @@ const JobDetailScreen: React.FC<JobDetailScreenProps> = ({ jobId, onBack }) => {
           return null;
         }
         return {
-          text: '✅ Complete Job',
+          text: isReadyForSubmission ? '📤 Submit Job' : '✅ Complete Job',
           color: Colors.tech,
           onPress: () => {
-            // Validate all tasks before allowing completion
-            if (completeJob(jobId)) {
-              Alert.alert('Success', 'Job completed! You can now submit it for approval.');
+            if (isReadyForSubmission) {
+              // Submit the job
+              if (completeJob(jobId)) {
+                submitJob(jobId);
+              }
+            } else {
+              // Validate all tasks
+              const validation = validateJobCompletion(jobId);
+              if (validation.isValid) {
+                setIsReadyForSubmission(true);
+                Alert.alert('Ready for Submission', 'All tasks completed successfully! Tap Submit Job to send for approval.');
+              } else {
+                Alert.alert('Cannot Complete Job', validation.message);
+              }
             }
           }
         };
@@ -323,7 +345,9 @@ const JobDetailScreen: React.FC<JobDetailScreenProps> = ({ jobId, onBack }) => {
           <Text style={styles.sectionTitle}>📋 Tasks</Text>
           
           {job.tasks && job.tasks.filter(task => task.status === 'completed').length > 0 ? (
-            job.tasks.filter(task => task.status === 'completed').map((task, index) => (
+            <View style={styles.pendingSection}>
+              <Text style={styles.pendingSectionTitle}>✅ Completed Tasks</Text>
+              {job.tasks.filter(task => task.status === 'completed').map((task, index) => (
               <TouchableOpacity 
                 key={task.id} 
                 style={styles.taskItem}
@@ -336,6 +360,7 @@ const JobDetailScreen: React.FC<JobDetailScreenProps> = ({ jobId, onBack }) => {
                   <Text style={styles.taskTitle}>✅ {task.description}</Text>
                   <Text style={styles.editHint}>Tap to edit</Text>
                 </View>
+                
                 
                 {/* Work Sessions */}
                 {task.sessions && task.sessions.length > 0 && (
@@ -354,14 +379,6 @@ const JobDetailScreen: React.FC<JobDetailScreenProps> = ({ jobId, onBack }) => {
                         </Text>
                       </View>
                     ))}
-                  </View>
-                )}
-                
-                {/* Remarks */}
-                {task.remarks && (
-                  <View style={styles.taskRemarksSection}>
-                    <Text style={styles.taskRemarksTitle}>📄 Remarks</Text>
-                    <Text style={styles.taskRemarksText}>{task.remarks}</Text>
                   </View>
                 )}
                 
@@ -435,8 +452,17 @@ const JobDetailScreen: React.FC<JobDetailScreenProps> = ({ jobId, onBack }) => {
                   </View>
                 )}
                 
+                {/* Task Remarks at Bottom */}
+                {task.remarks && task.remarks.trim() !== '' && (
+                  <View style={styles.taskCardRemarksSection}>
+                    <Text style={styles.taskCardRemarksLabel}>📄 Remarks:</Text>
+                    <Text style={styles.taskCardRemarksText}>{task.remarks}</Text>
+                  </View>
+                )}
+                
               </TouchableOpacity>
-            ))
+              ))}
+            </View>
           ) : (
             <View style={styles.emptyTasks}>
               <Text style={styles.emptyTasksText}>No tasks completed yet</Text>
@@ -464,6 +490,7 @@ const JobDetailScreen: React.FC<JobDetailScreenProps> = ({ jobId, onBack }) => {
                   <View style={styles.pendingTaskContent}>
                     <Text style={styles.pendingTaskText}>🔧 {task.description}</Text>
                     <Text style={styles.pendingTaskStatus}>Working - Tap to complete</Text>
+                    
                     
                     {/* Work Sessions for In Progress Tasks */}
                     {task.sessions && task.sessions.length > 0 && (
@@ -549,6 +576,14 @@ const JobDetailScreen: React.FC<JobDetailScreenProps> = ({ jobId, onBack }) => {
                         )}
                       </View>
                     )}
+                    
+                    {/* Task Remarks at Bottom of In-Progress Card */}
+                    {task.remarks && task.remarks.trim() !== '' && (
+                      <View style={styles.taskCardRemarksSection}>
+                        <Text style={styles.taskCardRemarksLabel}>📄 Remarks:</Text>
+                        <Text style={styles.taskCardRemarksText}>{task.remarks}</Text>
+                      </View>
+                    )}
                   </View>
                   <Text style={styles.pendingTaskArrow}>▶</Text>
                 </TouchableOpacity>
@@ -580,6 +615,14 @@ const JobDetailScreen: React.FC<JobDetailScreenProps> = ({ jobId, onBack }) => {
                   <View style={styles.pendingTaskContent}>
                     <Text style={styles.pendingTaskText}>📝 {task.description}</Text>
                     <Text style={styles.pendingTaskStatus}>Tap to work</Text>
+                    
+                    {/* Task Remarks at Bottom of Pending Card */}
+                    {task.remarks && task.remarks.trim() !== '' && (
+                      <View style={styles.taskCardRemarksSection}>
+                        <Text style={styles.taskCardRemarksLabel}>📄 Remarks:</Text>
+                        <Text style={styles.taskCardRemarksText}>{task.remarks}</Text>
+                      </View>
+                    )}
                   </View>
                   <Text style={styles.pendingTaskArrow}>▶</Text>
                 </TouchableOpacity>
@@ -657,7 +700,6 @@ const JobDetailScreen: React.FC<JobDetailScreenProps> = ({ jobId, onBack }) => {
         onUpdateTask={(taskData: TaskWorkData) => {
           // Update task status in the job
           updateTaskStatus(jobId, selectedTask, taskData);
-          Alert.alert('Task Updated', `Task status: ${taskData.status}`);
           setShowTaskModal(false);
         }}
       />
@@ -1112,6 +1154,23 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     backgroundColor: Colors.cardBackground,
     borderRadius: 6,
+  },
+  // Task card remarks styles (for main card display)
+  taskCardRemarksSection: {
+    marginTop: 8,
+    marginBottom: 4,
+  },
+  taskCardRemarksLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: Colors.text,
+    marginBottom: 2,
+  },
+  taskCardRemarksText: {
+    fontSize: 11,
+    color: Colors.textSecondary,
+    fontStyle: 'italic',
+    lineHeight: 16,
   },
   photoSection: {
     marginTop: 12,
