@@ -35,6 +35,7 @@ const JobDetailScreen: React.FC<JobDetailScreenProps> = ({ jobId, onBack }) => {
   const [isEditingDescription, setIsEditingDescription] = useState(false);
   const [editingDescription, setEditingDescription] = useState('');
   const [isReadyForSubmission, setIsReadyForSubmission] = useState(false);
+  const [expandedTasks, setExpandedTasks] = useState<Set<string>>(new Set());
   
   const job = jobs[jobId];
 
@@ -47,6 +48,17 @@ const JobDetailScreen: React.FC<JobDetailScreenProps> = ({ jobId, onBack }) => {
       setIsReadyForSubmission(false);
     }
   }, [job?.tasks, jobId, validateJobCompletion]);
+
+  // Toggle task expansion
+  const toggleTaskExpansion = (taskId: string) => {
+    const newExpandedTasks = new Set(expandedTasks);
+    if (newExpandedTasks.has(taskId)) {
+      newExpandedTasks.delete(taskId);
+    } else {
+      newExpandedTasks.add(taskId);
+    }
+    setExpandedTasks(newExpandedTasks);
+  };
 
   if (!job) {
     return (
@@ -348,17 +360,30 @@ const JobDetailScreen: React.FC<JobDetailScreenProps> = ({ jobId, onBack }) => {
             <View style={styles.pendingSection}>
               <Text style={styles.pendingSectionTitle}>✅ Completed Tasks</Text>
               {job.tasks.filter(task => task.status === 'completed').map((task, index) => (
-              <TouchableOpacity 
-                key={task.id} 
-                style={styles.taskItem}
-                onPress={() => {
-                  setSelectedTask(task.description);
-                  setShowTaskModal(true);
-                }}
-              >
+              <View key={task.id} style={styles.taskItem}>
                 <View style={styles.taskHeader}>
-                  <Text style={styles.taskTitle}>✅ {task.description}</Text>
-                  <Text style={styles.editHint}>Tap to edit</Text>
+                  <TouchableOpacity 
+                    style={styles.taskMainContent}
+                    onPress={() => {
+                      setSelectedTask(task.description);
+                      setShowTaskModal(true);
+                    }}
+                  >
+                    <Text style={styles.taskTitle}>✅ {task.description}</Text>
+                    <Text style={styles.editHint}>Tap to edit</Text>
+                  </TouchableOpacity>
+                  
+                  {/* Only show expand button if task has photos */}
+                  {task.photos && task.photos.length > 0 && (
+                    <TouchableOpacity 
+                      style={styles.expandButton}
+                      onPress={() => toggleTaskExpansion(task.id)}
+                    >
+                      <Text style={styles.expandButtonText}>
+                        {expandedTasks.has(task.id) ? '▼' : '▶'}
+                      </Text>
+                    </TouchableOpacity>
+                  )}
                 </View>
                 
                 
@@ -382,8 +407,17 @@ const JobDetailScreen: React.FC<JobDetailScreenProps> = ({ jobId, onBack }) => {
                   </View>
                 )}
                 
-                {/* Photos by Category */}
-                {task.photos && task.photos.length > 0 && (
+                {/* Photo count indicator when collapsed */}
+                {!expandedTasks.has(task.id) && task.photos && task.photos.length > 0 && (
+                  <View style={styles.photoCountSection}>
+                    <Text style={styles.photoCountText}>
+                      📸 {task.photos.length} photo(s) • Tap ▶ to view thumbnails
+                    </Text>
+                  </View>
+                )}
+                
+                {/* Photos by Category - Only show when expanded */}
+                {expandedTasks.has(task.id) && task.photos && task.photos.length > 0 && (
                   <View style={styles.photoSection}>
                     <Text style={styles.photoSectionTitle}>📸 Work Photos ({task.photos.length} total)</Text>
                     
@@ -460,7 +494,7 @@ const JobDetailScreen: React.FC<JobDetailScreenProps> = ({ jobId, onBack }) => {
                   </View>
                 )}
                 
-              </TouchableOpacity>
+              </View>
               ))}
             </View>
           ) : (
@@ -479,114 +513,140 @@ const JobDetailScreen: React.FC<JobDetailScreenProps> = ({ jobId, onBack }) => {
             <View style={styles.pendingSection}>
               <Text style={styles.pendingSectionTitle}>🔄 In Progress Tasks</Text>
               {job.tasks.filter(task => task.status === 'in_progress').map((task, index) => (
-                <TouchableOpacity 
-                  key={task.id} 
-                  style={[styles.pendingTaskButton, styles.inProgressTaskButton]}
-                  onPress={() => {
-                    setSelectedTask(task.description);
-                    setShowTaskModal(true);
-                  }}
-                >
-                  <View style={styles.pendingTaskContent}>
-                    <Text style={styles.pendingTaskText}>🔧 {task.description}</Text>
-                    <Text style={styles.pendingTaskStatus}>Working - Tap to complete</Text>
+                <View key={task.id} style={[styles.taskItem, styles.inProgressTaskButton]}>
+                  <View style={styles.taskHeader}>
+                    <TouchableOpacity 
+                      style={styles.taskMainContent}
+                      onPress={() => {
+                        setSelectedTask(task.description);
+                        setShowTaskModal(true);
+                      }}
+                    >
+                      <Text style={styles.taskTitle}>🔧 {task.description}</Text>
+                      <Text style={styles.editHint}>Working - Tap to complete</Text>
+                    </TouchableOpacity>
                     
-                    
-                    {/* Work Sessions for In Progress Tasks */}
-                    {task.sessions && task.sessions.length > 0 && (
-                      <View style={styles.inlineSessionsSection}>
-                        <Text style={styles.inlineSessionsTitle}>📋 Sessions ({task.sessions.length})</Text>
-                        {task.sessions.map((session, sessionIndex) => (
-                          <Text key={session.id} style={styles.inlineSessionText}>
-                            • Session {sessionIndex + 1}: {session.startDate === session.endDate 
-                              ? `${session.startDate} ${session.startTime} - ${session.endTime || '[Active]'}`
-                              : `${session.startDate} ${session.startTime} - ${session.endDate} ${session.endTime || '[Active]'}`
-                            } {session.isActive ? '🔄' : '✅'}
-                          </Text>
-                        ))}
-                        
-                        {/* Photos for In Progress Tasks */}
-                        {task.photos && task.photos.length > 0 && (
-                          <View style={styles.inlinePhotoSection}>
-                            <Text style={styles.inlinePhotoTitle}>📸 Work Photos ({task.photos.length})</Text>
-                            
-                            {/* Before Photos */}
-                            {task.photos.filter(p => p.category === 'before').length > 0 && (
-                              <View style={styles.inlinePhotoCategorySection}>
-                                <Text style={styles.inlinePhotoCategoryTitle}>Before ({task.photos.filter(p => p.category === 'before').length})</Text>
-                                <View style={styles.inlinePhotoGrid}>
-                                  {task.photos.filter(p => p.category === 'before').map((photo) => (
-                                    <TouchableOpacity 
-                                      key={photo.id} 
-                                      style={styles.inlinePhotoThumbnail}
-                                      onPress={() => openPhotoModal(photo, task.photos)}
-                                    >
-                                      <Image source={{ uri: photo.uri }} style={styles.inlinePhotoImage} />
-                                      <Text style={styles.inlinePhotoLabel} numberOfLines={2}>
-                                        {photo.description}
-                                      </Text>
-                                    </TouchableOpacity>
-                                  ))}
-                                </View>
-                              </View>
-                            )}
-                            
-                            {/* During Photos */}
-                            {task.photos.filter(p => p.category === 'during').length > 0 && (
-                              <View style={styles.inlinePhotoCategorySection}>
-                                <Text style={styles.inlinePhotoCategoryTitle}>During ({task.photos.filter(p => p.category === 'during').length})</Text>
-                                <View style={styles.inlinePhotoGrid}>
-                                  {task.photos.filter(p => p.category === 'during').map((photo) => (
-                                    <TouchableOpacity 
-                                      key={photo.id} 
-                                      style={styles.inlinePhotoThumbnail}
-                                      onPress={() => openPhotoModal(photo, task.photos)}
-                                    >
-                                      <Image source={{ uri: photo.uri }} style={styles.inlinePhotoImage} />
-                                      <Text style={styles.inlinePhotoLabel} numberOfLines={2}>
-                                        {photo.description}
-                                      </Text>
-                                    </TouchableOpacity>
-                                  ))}
-                                </View>
-                              </View>
-                            )}
-                            
-                            {/* After Photos */}
-                            {task.photos.filter(p => p.category === 'after').length > 0 && (
-                              <View style={styles.inlinePhotoCategorySection}>
-                                <Text style={styles.inlinePhotoCategoryTitle}>After ({task.photos.filter(p => p.category === 'after').length})</Text>
-                                <View style={styles.inlinePhotoGrid}>
-                                  {task.photos.filter(p => p.category === 'after').map((photo) => (
-                                    <TouchableOpacity 
-                                      key={photo.id} 
-                                      style={styles.inlinePhotoThumbnail}
-                                      onPress={() => openPhotoModal(photo, task.photos)}
-                                    >
-                                      <Image source={{ uri: photo.uri }} style={styles.inlinePhotoImage} />
-                                      <Text style={styles.inlinePhotoLabel} numberOfLines={2}>
-                                        {photo.description}
-                                      </Text>
-                                    </TouchableOpacity>
-                                  ))}
-                                </View>
-                              </View>
-                            )}
-                          </View>
-                        )}
-                      </View>
-                    )}
-                    
-                    {/* Task Remarks at Bottom of In-Progress Card */}
-                    {task.remarks && task.remarks.trim() !== '' && (
-                      <View style={styles.taskCardRemarksSection}>
-                        <Text style={styles.taskCardRemarksLabel}>📄 Remarks:</Text>
-                        <Text style={styles.taskCardRemarksText}>{task.remarks}</Text>
-                      </View>
+                    {/* Only show expand button if task has photos */}
+                    {task.photos && task.photos.length > 0 && (
+                      <TouchableOpacity 
+                        style={styles.expandButton}
+                        onPress={() => toggleTaskExpansion(task.id)}
+                      >
+                        <Text style={styles.expandButtonText}>
+                          {expandedTasks.has(task.id) ? '▼' : '▶'}
+                        </Text>
+                      </TouchableOpacity>
                     )}
                   </View>
-                  <Text style={styles.pendingTaskArrow}>▶</Text>
-                </TouchableOpacity>
+                  
+                  {/* Work Sessions */}
+                  {task.sessions && task.sessions.length > 0 && (
+                    <View style={styles.taskSessionsSection}>
+                      <Text style={styles.taskSessionsTitle}>📋 Work Sessions ({task.sessions.length} total)</Text>
+                      {task.sessions.map((session, sessionIndex) => (
+                        <View key={session.id} style={styles.taskSessionItem}>
+                          <Text style={styles.taskSessionText}>
+                            Session {sessionIndex + 1}: {session.startDate === session.endDate 
+                              ? `${session.startDate} ${session.startTime} - ${session.endTime || '[Active]'}`
+                              : `${session.startDate} ${session.startTime} - ${session.endDate} ${session.endTime || '[Active]'}`
+                            }
+                          </Text>
+                          <Text style={styles.taskSessionStatus}>
+                            {session.isActive ? '🔄' : '✅'}
+                          </Text>
+                        </View>
+                      ))}
+                    </View>
+                  )}
+                  
+                  {/* Photo count indicator when collapsed */}
+                  {!expandedTasks.has(task.id) && task.photos && task.photos.length > 0 && (
+                    <View style={styles.photoCountSection}>
+                      <Text style={styles.photoCountText}>
+                        📸 {task.photos.length} photo(s) • Tap ▶ to view thumbnails
+                      </Text>
+                    </View>
+                  )}
+                  
+                  {/* Photos by Category - Only show when expanded */}
+                  {expandedTasks.has(task.id) && task.photos && task.photos.length > 0 && (
+                    <View style={styles.photoSection}>
+                      <Text style={styles.photoSectionTitle}>📸 Work Photos ({task.photos.length} total)</Text>
+                      
+                      {/* Before Photos */}
+                      {task.photos.filter(p => p.category === 'before').length > 0 && (
+                        <View style={styles.photoCategorySection}>
+                          <Text style={styles.photoCategoryTitle}>Before ({task.photos.filter(p => p.category === 'before').length})</Text>
+                          <View style={styles.photoGrid}>
+                            {task.photos.filter(p => p.category === 'before').map((photo) => (
+                              <TouchableOpacity 
+                                key={photo.id} 
+                                style={styles.photoThumbnail}
+                                onPress={() => openPhotoModal(photo, task.photos)}
+                              >
+                                <Image source={{ uri: photo.uri }} style={styles.photoImage} />
+                                <Text style={styles.photoLabel} numberOfLines={2}>
+                                  {photo.description}
+                                </Text>
+                              </TouchableOpacity>
+                            ))}
+                          </View>
+                        </View>
+                      )}
+                      
+                      {/* During Photos */}
+                      {task.photos.filter(p => p.category === 'during').length > 0 && (
+                        <View style={styles.photoCategorySection}>
+                          <Text style={styles.photoCategoryTitle}>During ({task.photos.filter(p => p.category === 'during').length})</Text>
+                          <View style={styles.photoGrid}>
+                            {task.photos.filter(p => p.category === 'during').map((photo) => (
+                              <TouchableOpacity 
+                                key={photo.id} 
+                                style={styles.photoThumbnail}
+                                onPress={() => openPhotoModal(photo, task.photos)}
+                              >
+                                <Image source={{ uri: photo.uri }} style={styles.photoImage} />
+                                <Text style={styles.photoLabel} numberOfLines={2}>
+                                  {photo.description}
+                                </Text>
+                              </TouchableOpacity>
+                            ))}
+                          </View>
+                        </View>
+                      )}
+                      
+                      {/* After Photos */}
+                      {task.photos.filter(p => p.category === 'after').length > 0 && (
+                        <View style={styles.photoCategorySection}>
+                          <Text style={styles.photoCategoryTitle}>After ({task.photos.filter(p => p.category === 'after').length})</Text>
+                          <View style={styles.photoGrid}>
+                            {task.photos.filter(p => p.category === 'after').map((photo) => (
+                              <TouchableOpacity 
+                                key={photo.id} 
+                                style={styles.photoThumbnail}
+                                onPress={() => openPhotoModal(photo, task.photos)}
+                              >
+                                <Image source={{ uri: photo.uri }} style={styles.photoImage} />
+                                <Text style={styles.photoLabel} numberOfLines={2}>
+                                  {photo.description}
+                                </Text>
+                              </TouchableOpacity>
+                            ))}
+                          </View>
+                        </View>
+                      )}
+                    </View>
+                  )}
+                  
+                  {/* Task Remarks at Bottom */}
+                  {task.remarks && task.remarks.trim() !== '' && (
+                    <View style={styles.taskCardRemarksSection}>
+                      <Text style={styles.taskCardRemarksLabel}>📄 Remarks:</Text>
+                      <Text style={styles.taskCardRemarksText}>{task.remarks}</Text>
+                    </View>
+                  )}
+                  
+                </View>
               ))}
             </View>
           )}
@@ -1171,6 +1231,64 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
     fontStyle: 'italic',
     lineHeight: 16,
+  },
+  // Expand/Collapse button styles
+  taskMainContent: {
+    flex: 1,
+  },
+  expandButton: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    marginLeft: 8,
+  },
+  expandButtonText: {
+    fontSize: 16,
+    color: Colors.textSecondary,
+    fontWeight: 'bold',
+  },
+  // Inline expand styles for in-progress tasks
+  pendingTaskHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    width: '100%',
+  },
+  taskMainContentInline: {
+    flex: 1,
+  },
+  expandButtonInline: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    marginLeft: 8,
+  },
+  // Photo count indicator styles
+  photoCountSection: {
+    marginTop: 8,
+    paddingVertical: 6,
+    paddingHorizontal: 8,
+    backgroundColor: Colors.cardBackground,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  photoCountText: {
+    fontSize: 11,
+    color: Colors.textSecondary,
+    fontStyle: 'italic',
+  },
+  inlinePhotoCountSection: {
+    marginTop: 6,
+    paddingVertical: 4,
+    paddingHorizontal: 6,
+    backgroundColor: 'rgba(245, 158, 11, 0.1)',
+    borderRadius: 4,
+    borderWidth: 1,
+    borderColor: 'rgba(245, 158, 11, 0.3)',
+  },
+  inlinePhotoCountText: {
+    fontSize: 10,
+    color: '#F59E0B',
+    fontStyle: 'italic',
   },
   photoSection: {
     marginTop: 12,
