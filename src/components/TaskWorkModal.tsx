@@ -92,9 +92,12 @@ const TaskWorkModal: React.FC<TaskWorkModalProps> = ({
   });
   const [hasEndTime, setHasEndTime] = useState(false);
 
+  // Track if modal was already initialized to prevent data overwrite
+  const [isInitialized, setIsInitialized] = useState(false);
+
   // Load existing task data or reset for new tasks
   useEffect(() => {
-    if (visible) {
+    if (visible && !isInitialized) {
       setShowAddSession(false);
       
       // Initialize session form state
@@ -107,7 +110,7 @@ const TaskWorkModal: React.FC<TaskWorkModalProps> = ({
       
       if (existingTaskData) {
         // Load existing task data
-        setNotes(existingTaskData.notes || '');
+        setNotes(existingTaskData.remarks || '');
         setStatus(existingTaskData.status);
         setSessions(existingTaskData.sessions || []);
         setPhotos(existingTaskData.photos || []);
@@ -118,8 +121,15 @@ const TaskWorkModal: React.FC<TaskWorkModalProps> = ({
         setSessions([]);
         setPhotos([]);
       }
+      
+      setIsInitialized(true);
     }
-  }, [visible, taskDescription, existingTaskData]);
+    
+    // Reset initialization flag when modal closes
+    if (!visible) {
+      setIsInitialized(false);
+    }
+  }, [visible, taskDescription, isInitialized, existingTaskData]);
 
   // Helper functions for date/time formatting and validation
   const getCurrentDate = () => {
@@ -244,6 +254,72 @@ const TaskWorkModal: React.FC<TaskWorkModalProps> = ({
     setPhotoModalState('none');
   };
 
+  // Task completion validation
+  const validateTaskCompletion = (): { isValid: boolean; message: string } => {
+    // 1. Check for required photos (at least 1 Before and 1 After)
+    const beforePhotos = photos.filter(photo => photo.category === 'before');
+    const afterPhotos = photos.filter(photo => photo.category === 'after');
+
+    if (beforePhotos.length === 0) {
+      return {
+        isValid: false,
+        message: 'Task cannot be completed. Please add at least 1 Before photo.'
+      };
+    }
+
+    if (afterPhotos.length === 0) {
+      return {
+        isValid: false,
+        message: 'Task cannot be completed. Please add at least 1 After photo.'
+      };
+    }
+
+    // 2. Check all work sessions are completed
+    for (const session of sessions) {
+      // Check if session has start date and time
+      if (!session.startDate || !session.startTime) {
+        return {
+          isValid: false,
+          message: 'Task cannot be completed. All work sessions must have Start Date and Time.'
+        };
+      }
+
+      // Check if session has end date and time (must not be active)
+      if (session.isActive || !session.endDate || !session.endTime) {
+        return {
+          isValid: false,
+          message: 'Task cannot be completed. All work sessions must have End Date and Time. Please complete any active sessions.'
+        };
+      }
+
+      // Validate date format (DD/MM/YYYY)
+      if (!isValidDate(session.startDate) || !isValidDate(session.endDate)) {
+        return {
+          isValid: false,
+          message: 'Task cannot be completed. Please ensure all dates are in DD/MM/YYYY format.'
+        };
+      }
+
+      // Validate time format (HH:MM AM/PM)
+      if (!isValidTime(session.startTime) || !isValidTime(session.endTime)) {
+        return {
+          isValid: false,
+          message: 'Task cannot be completed. Please ensure all times are in HH:MM AM/PM format.'
+        };
+      }
+    }
+
+    // If we have no sessions at all, that's also invalid
+    if (sessions.length === 0) {
+      return {
+        isValid: false,
+        message: 'Task cannot be completed. Please add at least one work session with start and end times.'
+      };
+    }
+
+    return { isValid: true, message: '' };
+  };
+
   const removePhoto = (photoId: string) => {
     Alert.alert(
       'Remove Photo',
@@ -350,6 +426,17 @@ const TaskWorkModal: React.FC<TaskWorkModalProps> = ({
   };
 
   const handleSave = () => {
+    // If task is already completed, validate before saving
+    if (status === 'completed') {
+      const validation = validateTaskCompletion();
+      
+      if (!validation.isValid) {
+        Alert.alert('Cannot Save Task', validation.message);
+        return;
+      }
+    }
+    
+    // Proceed with saving (validation passed or task is in_progress)
     saveTask();
   };
 
@@ -366,13 +453,35 @@ const TaskWorkModal: React.FC<TaskWorkModalProps> = ({
     onClose();
   };
 
+  // Handle modal closing with validation
+  const handleClose = () => {
+    if (status === 'in_progress') {
+      Alert.alert(
+        'Save Your Work',
+        'You have started working on this task. Please save your work before closing.',
+        [
+          { text: 'Continue Working', style: 'cancel' },
+          { 
+            text: 'Save & Close', 
+            onPress: () => {
+              handleSave();
+              onClose();
+            }
+          }
+        ]
+      );
+    } else {
+      onClose();
+    }
+  };
+
 
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet">
       <View style={styles.container}>
         {/* Header */}
         <View style={styles.header}>
-          <TouchableOpacity onPress={onClose}>
+          <TouchableOpacity onPress={handleClose}>
             <Text style={styles.cancelButton}>Cancel</Text>
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Work on Task</Text>
@@ -572,11 +681,19 @@ const TaskWorkModal: React.FC<TaskWorkModalProps> = ({
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>📄 Remarks (Optional)</Text>
             <TextInput
-              style={styles.notesInput}
+              style={[
+                styles.notesInput,
+                status === 'pending' && styles.disabledInput
+              ]}
               value={notes}
-              onChangeText={setNotes}
-              placeholder="Add any additional remarks about this task..."
+              onChangeText={status === 'pending' ? undefined : setNotes}
+              placeholder={
+                status === 'pending' 
+                  ? "Start work to add remarks..." 
+                  : "Add any additional remarks about this task..."
+              }
               placeholderTextColor={Colors.textSecondary}
+              editable={status !== 'pending'}
               multiline
               numberOfLines={3}
             />
@@ -615,6 +732,14 @@ const TaskWorkModal: React.FC<TaskWorkModalProps> = ({
                   
                   Alert.alert('Task Started', 'Task is now in progress!');
                 } else if (status === 'in_progress') {
+                  // Validate task completion requirements
+                  const validation = validateTaskCompletion();
+                  
+                  if (!validation.isValid) {
+                    Alert.alert('Cannot Complete Task', validation.message);
+                    return;
+                  }
+                  
                   // Mark current active session as completed
                   const updatedSessions = sessions.map(session => 
                     session.isActive ? { ...session, endTime: getCurrentTime(), isActive: false } : session
@@ -632,7 +757,7 @@ const TaskWorkModal: React.FC<TaskWorkModalProps> = ({
                   };
                   onUpdateTask(taskData);
                   
-                  Alert.alert('Task Completed', 'Task has been completed!');
+                  Alert.alert('Task Completed', 'Task has been completed successfully!');
                 }
               }}
             >
@@ -647,11 +772,19 @@ const TaskWorkModal: React.FC<TaskWorkModalProps> = ({
               styles.bottomButton, 
               styles.saveButton,
               // If no Start/Complete button, make Save button full width
-              status === 'completed' && styles.fullWidthButton
+              status === 'completed' && styles.fullWidthButton,
+              // Disable Save button when task is pending
+              status === 'pending' && styles.disabledButton
             ]}
-            onPress={handleSave}
+            onPress={status === 'pending' ? undefined : handleSave}
+            disabled={status === 'pending'}
           >
-            <Text style={styles.bottomButtonText}>💾 Save</Text>
+            <Text style={[
+              styles.bottomButtonText,
+              status === 'pending' && styles.disabledButtonText
+            ]}>
+              💾 Save{status === 'pending' ? ' (Start work first)' : ''}
+            </Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -962,6 +1095,20 @@ const styles = StyleSheet.create({
   },
   fullWidthButton: {
     flex: 2, // Take full width when Start/Complete button is hidden
+  },
+  disabledButton: {
+    backgroundColor: Colors.cardBackground,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    opacity: 0.6,
+  },
+  disabledButtonText: {
+    color: Colors.textSecondary,
+  },
+  disabledInput: {
+    backgroundColor: Colors.cardBackground,
+    borderColor: Colors.border,
+    opacity: 0.7,
   },
   sessionCard: {
     backgroundColor: Colors.white,
