@@ -293,6 +293,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [users, setUsers] = useState(mockData.users);
   const [jobs, setJobs] = useState<{ [key: string]: Job }>(mockData.jobs);
+  const [jobHistory, setJobHistory] = useState<{ [key: string]: Job }>({});
   const [notifications, setNotifications] = useState<{ [key: string]: Notification }>({});
   const [isLoggedIn, setIsLoggedIn] = useState(false);
 
@@ -538,14 +539,24 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const approveJob = (jobId: string) => {
     const job = jobs[jobId];
     if (job) {
-      setJobs(prev => ({
+      // Create approved job with timestamp
+      const approvedJob = {
+        ...job,
+        status: 'Approved' as JobStatus,
+        approvedAt: new Date().toISOString()
+      };
+
+      // Move job to history
+      setJobHistory(prev => ({
         ...prev,
-        [jobId]: {
-          ...prev[jobId],
-          status: 'Approved',
-          approvedAt: new Date().toISOString()
-        }
+        [jobId]: approvedJob
       }));
+
+      // Remove from active jobs
+      setJobs(prev => {
+        const { [jobId]: removed, ...rest } = prev;
+        return rest;
+      });
 
       // Notify all assigned techs
       job.assignedTechs.forEach(techId => {
@@ -569,7 +580,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         ...prev,
         [jobId]: {
           ...prev[jobId],
-          status: 'Rejected',
+          status: 'In Progress',
           rejectionReason: reason
         }
       }));
@@ -946,6 +957,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     currentUser,
     users,
     jobs,
+    jobHistory,
     notifications,
     isLoggedIn,
     login,

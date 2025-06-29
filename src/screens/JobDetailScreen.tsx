@@ -23,7 +23,7 @@ interface JobDetailScreenProps {
 }
 
 const JobDetailScreen: React.FC<JobDetailScreenProps> = ({ jobId, onBack }) => {
-  const { currentUser, users, jobs, startJob, validateJobCompletion, completeJob, submitJob, cancelJob, addPendingTask, updateTaskStatus, updateTask, cancelTask } = useApp();
+  const { currentUser, users, jobs, startJob, validateJobCompletion, completeJob, submitJob, cancelJob, addPendingTask, updateTaskStatus, updateTask, cancelTask, approveJob, rejectJob } = useApp();
   const [showTaskModal, setShowTaskModal] = useState(false);
   const [selectedTaskId, setSelectedTaskId] = useState<string>('');
   const [showAddTaskModal, setShowAddTaskModal] = useState(false);
@@ -36,6 +36,9 @@ const JobDetailScreen: React.FC<JobDetailScreenProps> = ({ jobId, onBack }) => {
   const [editingDescription, setEditingDescription] = useState('');
   const [isReadyForSubmission, setIsReadyForSubmission] = useState(false);
   const [expandedTasks, setExpandedTasks] = useState<Set<string>>(new Set());
+  const [showApprovalModal, setShowApprovalModal] = useState(false);
+  const [showRejectionInput, setShowRejectionInput] = useState(false);
+  const [rejectionReason, setRejectionReason] = useState('');
   
   const job = jobs[jobId];
 
@@ -232,7 +235,7 @@ const JobDetailScreen: React.FC<JobDetailScreenProps> = ({ jobId, onBack }) => {
           return {
             text: '🔍 Review & Approve',
             color: '#3B82F6',
-            onPress: () => Alert.alert('Review Job', 'Approval system coming soon')
+            onPress: () => setShowApprovalModal(true)
           };
         }
         return {
@@ -334,6 +337,32 @@ const JobDetailScreen: React.FC<JobDetailScreenProps> = ({ jobId, onBack }) => {
     setSelectedPhoto(allPhotos[newIndex]);
   };
 
+  // Approval/Rejection functions
+  const handleApproveJob = () => {
+    approveJob(jobId);
+    setShowApprovalModal(false);
+  };
+
+  const handleRejectJob = () => {
+    if (rejectionReason.trim()) {
+      rejectJob(jobId, rejectionReason.trim());
+      setShowApprovalModal(false);
+      setShowRejectionInput(false);
+      setRejectionReason('');
+    } else {
+      Alert.alert('Rejection Reason Required', 'Please provide a reason for rejecting this job.');
+    }
+  };
+
+  const showRejectionForm = () => {
+    setShowRejectionInput(true);
+  };
+
+  const cancelRejection = () => {
+    setShowRejectionInput(false);
+    setRejectionReason('');
+  };
+
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor={Colors.tech} />
@@ -422,7 +451,7 @@ const JobDetailScreen: React.FC<JobDetailScreenProps> = ({ jobId, onBack }) => {
         </View>
 
         {/* Rejection Notice */}
-        {job.status === 'Rejected' && job.rejectionReason && (
+        {job.rejectionReason && (
           <View style={styles.card}>
             <View style={styles.rejectionHeader}>
               <Text style={styles.rejectionTitle}>❌ Rejection Feedback</Text>
@@ -1052,6 +1081,79 @@ const JobDetailScreen: React.FC<JobDetailScreenProps> = ({ jobId, onBack }) => {
                   Size: {(selectedPhoto.fileSize / (1024 * 1024)).toFixed(2)} MB
                 </Text>
               </View>
+            </View>
+          </View>
+        </Modal>
+      )}
+
+      {/* Approval Modal */}
+      {showApprovalModal && (
+        <Modal transparent animationType="fade">
+          <View style={styles.modalOverlay}>
+            <View style={styles.approvalModal}>
+              <Text style={styles.approvalModalTitle}>Review Job</Text>
+              <Text style={styles.approvalModalSubtitle}>{job.title}</Text>
+              
+              {!showRejectionInput ? (
+                <>
+                  <Text style={styles.approvalModalQuestion}>
+                    How would you like to proceed with this job?
+                  </Text>
+                  
+                  <View style={styles.approvalButtons}>
+                    <TouchableOpacity
+                      style={[styles.approvalButton, styles.approveButton]}
+                      onPress={handleApproveJob}
+                    >
+                      <Text style={styles.approveButtonText}>✅ Approve Job</Text>
+                    </TouchableOpacity>
+                    
+                    <TouchableOpacity
+                      style={[styles.approvalButton, styles.rejectButton]}
+                      onPress={showRejectionForm}
+                    >
+                      <Text style={styles.rejectButtonText}>❌ Reject Job</Text>
+                    </TouchableOpacity>
+                  </View>
+                  
+                  <TouchableOpacity
+                    style={styles.cancelApprovalButton}
+                    onPress={() => setShowApprovalModal(false)}
+                  >
+                    <Text style={styles.cancelApprovalText}>Cancel</Text>
+                  </TouchableOpacity>
+                </>
+              ) : (
+                <>
+                  <Text style={styles.rejectionTitle}>Why are you rejecting this job?</Text>
+                  <TextInput
+                    style={styles.rejectionInput}
+                    value={rejectionReason}
+                    onChangeText={setRejectionReason}
+                    placeholder="Specify which tasks need improvement and what changes are required..."
+                    placeholderTextColor={Colors.textSecondary}
+                    multiline
+                    numberOfLines={4}
+                    autoFocus
+                  />
+                  
+                  <View style={styles.rejectionButtons}>
+                    <TouchableOpacity
+                      style={[styles.rejectionButton, styles.submitRejectionButton]}
+                      onPress={handleRejectJob}
+                    >
+                      <Text style={styles.submitRejectionText}>Submit Rejection</Text>
+                    </TouchableOpacity>
+                    
+                    <TouchableOpacity
+                      style={[styles.rejectionButton, styles.cancelRejectionButton]}
+                      onPress={cancelRejection}
+                    >
+                      <Text style={styles.cancelRejectionText}>Cancel</Text>
+                    </TouchableOpacity>
+                  </View>
+                </>
+              )}
             </View>
           </View>
         </Modal>
@@ -1798,6 +1900,118 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontStyle: 'italic',
     marginTop: 4,
+  },
+  // Approval Modal Styles
+  approvalModal: {
+    backgroundColor: Colors.white,
+    borderRadius: 12,
+    padding: 24,
+    margin: 20,
+    minWidth: 320,
+    maxWidth: '90%',
+  },
+  approvalModalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: Colors.text,
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  approvalModalSubtitle: {
+    fontSize: 16,
+    color: Colors.textSecondary,
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  approvalModalQuestion: {
+    fontSize: 16,
+    color: Colors.text,
+    textAlign: 'center',
+    marginBottom: 24,
+  },
+  approvalButtons: {
+    flexDirection: 'column',
+    gap: 12,
+    marginBottom: 20,
+  },
+  approvalButton: {
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  approveButton: {
+    backgroundColor: '#10B981',
+  },
+  rejectButton: {
+    backgroundColor: '#DC2626',
+  },
+  approveButtonText: {
+    color: Colors.white,
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  rejectButtonText: {
+    color: Colors.white,
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  cancelApprovalButton: {
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  cancelApprovalText: {
+    color: Colors.textSecondary,
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  // Rejection Form Styles
+  rejectionTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: Colors.text,
+    marginBottom: 16,
+  },
+  rejectionInput: {
+    borderWidth: 1,
+    borderColor: Colors.border,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 16,
+    color: Colors.text,
+    backgroundColor: Colors.white,
+    textAlignVertical: 'top',
+    minHeight: 100,
+    marginBottom: 20,
+  },
+  rejectionButtons: {
+    flexDirection: 'column',
+    gap: 10,
+  },
+  rejectionButton: {
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  submitRejectionButton: {
+    backgroundColor: '#DC2626',
+  },
+  cancelRejectionButton: {
+    backgroundColor: Colors.cardBackground,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  submitRejectionText: {
+    color: Colors.white,
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  cancelRejectionText: {
+    color: Colors.textSecondary,
+    fontSize: 16,
+    fontWeight: '600',
   },
 });
 

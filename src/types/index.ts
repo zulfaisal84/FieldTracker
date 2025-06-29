@@ -90,6 +90,7 @@ export interface AppState {
   currentUser: User | null;
   users: { [key: string]: User };
   jobs: { [key: string]: Job };
+  jobHistory: { [key: string]: Job };
   notifications: { [key: string]: Notification };
   isLoggedIn: boolean;
 }
