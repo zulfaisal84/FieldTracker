@@ -33,6 +33,17 @@ export interface WorkSession {
   isActive: boolean;
 }
 
+export interface TaskActivity {
+  startedBy?: string;
+  startedAt?: string;
+  lastEditedBy?: string;
+  lastEditedAt?: string;
+  lastSavedBy?: string;
+  lastSavedAt?: string;
+  completedBy?: string;
+  completedAt?: string;
+}
+
 export interface Task {
   id: string;
   description: string;
@@ -40,6 +51,7 @@ export interface Task {
   sessions: WorkSession[];
   photos: TaskPhoto[];
   remarks?: string;
+  activity?: TaskActivity;
 }
 
 export interface Job {

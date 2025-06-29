@@ -23,7 +23,7 @@ interface JobDetailScreenProps {
 }
 
 const JobDetailScreen: React.FC<JobDetailScreenProps> = ({ jobId, onBack }) => {
-  const { currentUser, jobs, startJob, validateJobCompletion, completeJob, submitJob, cancelJob, addPendingTask, updateTaskStatus, updateTask } = useApp();
+  const { currentUser, users, jobs, startJob, validateJobCompletion, completeJob, submitJob, cancelJob, addPendingTask, updateTaskStatus, updateTask } = useApp();
   const [showTaskModal, setShowTaskModal] = useState(false);
   const [selectedTask, setSelectedTask] = useState<string>('');
   const [showAddTaskModal, setShowAddTaskModal] = useState(false);
@@ -49,6 +49,22 @@ const JobDetailScreen: React.FC<JobDetailScreenProps> = ({ jobId, onBack }) => {
     }
   }, [job?.tasks, jobId, validateJobCompletion]);
 
+  // Helper function to format relative time
+  const getRelativeTime = (timestamp: string): string => {
+    const now = new Date();
+    const time = new Date(timestamp);
+    const diffMs = now.getTime() - time.getTime();
+    const diffMins = Math.floor(diffMs / (1000 * 60));
+    const diffHours = Math.floor(diffMins / 60);
+    const diffDays = Math.floor(diffHours / 24);
+
+    if (diffMins < 1) return 'just now';
+    if (diffMins < 60) return `${diffMins}m ago`;
+    if (diffHours < 24) return `${diffHours}h ago`;
+    if (diffDays < 7) return `${diffDays}d ago`;
+    return time.toLocaleDateString();
+  };
+
   // Toggle task expansion
   const toggleTaskExpansion = (taskId: string) => {
     const newExpandedTasks = new Set(expandedTasks);
@@ -58,6 +74,62 @@ const JobDetailScreen: React.FC<JobDetailScreenProps> = ({ jobId, onBack }) => {
       newExpandedTasks.add(taskId);
     }
     setExpandedTasks(newExpandedTasks);
+  };
+
+  // Render task activity section
+  const renderTaskActivity = (task: any, isExpanded: boolean) => {
+    if (!task.activity) return null;
+
+    const { startedBy, startedAt, lastEditedBy, lastEditedAt, lastSavedBy, lastSavedAt, completedBy, completedAt } = task.activity;
+    
+    // Collect activity items
+    const activities = [];
+    if (startedBy && startedAt) {
+      const user = users[startedBy];
+      activities.push({ action: 'started', user: user?.realName || 'Unknown', time: startedAt });
+    }
+    if (lastEditedBy && lastEditedAt) {
+      const user = users[lastEditedBy];
+      activities.push({ action: 'edited', user: user?.realName || 'Unknown', time: lastEditedAt });
+    }
+    if (lastSavedBy && lastSavedAt) {
+      const user = users[lastSavedBy];
+      activities.push({ action: 'saved', user: user?.realName || 'Unknown', time: lastSavedAt });
+    }
+    if (completedBy && completedAt) {
+      const user = users[completedBy];
+      activities.push({ action: 'completed', user: user?.realName || 'Unknown', time: completedAt });
+    }
+
+    if (activities.length === 0) return null;
+
+    if (isExpanded) {
+      // Expanded view - show all activities
+      return (
+        <View style={styles.taskActivitySection}>
+          <Text style={styles.taskActivityTitle}>👤 Task Activity:</Text>
+          {activities.map((activity, index) => (
+            <Text key={index} style={styles.taskActivityDetail}>
+              • {activity.action.charAt(0).toUpperCase() + activity.action.slice(1)} by: 👷 {activity.user} ({getRelativeTime(activity.time)})
+            </Text>
+          ))}
+        </View>
+      );
+    } else {
+      // Compact view - show most recent 2 activities
+      const recentActivities = activities.slice(-2);
+      const activityText = recentActivities.map(activity => 
+        `👷 ${activity.user} ${activity.action} (${getRelativeTime(activity.time)})`
+      ).join(' • ');
+
+      return (
+        <View style={styles.taskActivitySection}>
+          <Text style={styles.taskActivityCompact}>
+            👤 Activity: {activityText}
+          </Text>
+        </View>
+      );
+    }
   };
 
   if (!job) {
@@ -295,6 +367,17 @@ const JobDetailScreen: React.FC<JobDetailScreenProps> = ({ jobId, onBack }) => {
               <Text style={styles.detailValue}>{job.siteLocation}</Text>
             </View>
             
+            {/* Assigned Technicians */}
+            <View style={[styles.detailRow, { marginBottom: 24 }]}>
+              <Text style={styles.detailLabel}>👥 Assigned Techs:</Text>
+              <Text style={styles.detailValue}>
+                {job.assignedTechs.map((techId, index) => {
+                  const tech = users[techId];
+                  return tech ? `👷 ${tech.realName}${index < job.assignedTechs.length - 1 ? ' ' : ''}` : '';
+                }).join('')}
+              </Text>
+            </View>
+            
             {/* Created and Submitted side by side */}
             <View style={styles.dateRowContainer}>
               <View style={styles.dateColumn}>
@@ -386,6 +469,8 @@ const JobDetailScreen: React.FC<JobDetailScreenProps> = ({ jobId, onBack }) => {
                   )}
                 </View>
                 
+                {/* Task Activity */}
+                {renderTaskActivity(task, expandedTasks.has(task.id))}
                 
                 {/* Work Sessions */}
                 {task.sessions && task.sessions.length > 0 && (
@@ -538,6 +623,9 @@ const JobDetailScreen: React.FC<JobDetailScreenProps> = ({ jobId, onBack }) => {
                       </TouchableOpacity>
                     )}
                   </View>
+                  
+                  {/* Task Activity */}
+                  {renderTaskActivity(task, expandedTasks.has(task.id))}
                   
                   {/* Work Sessions */}
                   {task.sessions && task.sessions.length > 0 && (
@@ -1288,6 +1376,28 @@ const styles = StyleSheet.create({
   inlinePhotoCountText: {
     fontSize: 10,
     color: '#F59E0B',
+    fontStyle: 'italic',
+  },
+  // Task Activity styles
+  taskActivitySection: {
+    marginTop: 8,
+    marginBottom: 8,
+  },
+  taskActivityTitle: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: Colors.text,
+    marginBottom: 4,
+  },
+  taskActivityDetail: {
+    fontSize: 11,
+    color: Colors.textSecondary,
+    marginBottom: 2,
+    paddingLeft: 8,
+  },
+  taskActivityCompact: {
+    fontSize: 11,
+    color: Colors.textSecondary,
     fontStyle: 'italic',
   },
   photoSection: {

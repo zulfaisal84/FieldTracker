@@ -628,17 +628,52 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const updateTaskStatus = (jobId: string, taskDescription: string, taskData: any) => {
     setJobs(prev => {
       const currentJob = prev[jobId];
-      const updatedTasks = currentJob.tasks.map(task =>
-        task.description === taskDescription 
-          ? { 
-              ...task, 
-              status: taskData.status,
-              sessions: taskData.sessions,
-              photos: taskData.photos || [],
-              remarks: taskData.notes
-            }
-          : task
-      );
+      const updatedTasks = currentJob.tasks.map(task => {
+        if (task.description === taskDescription) {
+          const now = new Date().toISOString();
+          const currentUserId = currentUser?.id || '';
+          
+          // Update activity tracking
+          const newActivity = { ...task.activity };
+          
+          // Track when task starts (status changes from pending to in_progress)
+          if (task.status === 'pending' && taskData.status === 'in_progress') {
+            newActivity.startedBy = currentUserId;
+            newActivity.startedAt = now;
+          }
+          
+          // Track when task is completed
+          if (task.status !== 'completed' && taskData.status === 'completed') {
+            newActivity.completedBy = currentUserId;
+            newActivity.completedAt = now;
+          }
+          
+          // Track last save (always when updateTaskStatus is called)
+          newActivity.lastSavedBy = currentUserId;
+          newActivity.lastSavedAt = now;
+          
+          // Track edit if content changed (photos, sessions, remarks)
+          const contentChanged = 
+            JSON.stringify(task.photos) !== JSON.stringify(taskData.photos) ||
+            JSON.stringify(task.sessions) !== JSON.stringify(taskData.sessions) ||
+            task.remarks !== taskData.notes;
+            
+          if (contentChanged) {
+            newActivity.lastEditedBy = currentUserId;
+            newActivity.lastEditedAt = now;
+          }
+          
+          return { 
+            ...task, 
+            status: taskData.status,
+            sessions: taskData.sessions,
+            photos: taskData.photos || [],
+            remarks: taskData.notes,
+            activity: newActivity
+          };
+        }
+        return task;
+      });
 
       // Calculate new job status based on updated tasks
       const newJobStatus = calculateJobStatus(updatedTasks, currentJob.status);
