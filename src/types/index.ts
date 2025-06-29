@@ -42,12 +42,15 @@ export interface TaskActivity {
   lastSavedAt?: string;
   completedBy?: string;
   completedAt?: string;
+  cancelledBy?: string;
+  cancelledAt?: string;
+  cancelReason?: string;
 }
 
 export interface Task {
   id: string;
   description: string;
-  status: 'pending' | 'in_progress' | 'completed';
+  status: 'pending' | 'in_progress' | 'completed' | 'cancelled';
   sessions: WorkSession[];
   photos: TaskPhoto[];
   remarks?: string;
@@ -77,7 +80,7 @@ export interface Notification {
   userId: string;
   title: string;
   message: string;
-  type: 'job_assigned' | 'job_started' | 'task_added' | 'job_submitted' | 'job_approved' | 'job_rejected';
+  type: 'job_assigned' | 'job_started' | 'task_added' | 'job_submitted' | 'job_approved' | 'job_rejected' | 'task_cancelled' | 'job_cancelled';
   jobId?: string;
   timestamp: string;
   isRead: boolean;

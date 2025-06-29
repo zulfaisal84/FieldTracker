@@ -21,6 +21,9 @@ interface TaskWorkModalProps {
   taskDescription: string;
   onUpdateTask: (taskData: TaskWorkData) => void;
   existingTaskData?: TaskWorkData;
+  jobId: string;
+  taskId: string;
+  onCancelTask?: (jobId: string, taskId: string, reason?: string) => void;
 }
 
 export interface WorkSession {
@@ -47,6 +50,9 @@ const TaskWorkModal: React.FC<TaskWorkModalProps> = ({
   taskDescription,
   onUpdateTask,
   existingTaskData,
+  jobId,
+  taskId,
+  onCancelTask,
 }) => {
   const [notes, setNotes] = useState('');
   const [status, setStatus] = useState<'pending' | 'in_progress' | 'completed'>('pending');
@@ -58,6 +64,7 @@ const TaskWorkModal: React.FC<TaskWorkModalProps> = ({
   const [pendingPhoto, setPendingPhoto] = useState<{ uri: string; fileSize: number } | null>(null);
   const [photoDescription, setPhotoDescription] = useState('');
   const [currentPhotoCategory, setCurrentPhotoCategory] = useState<'before' | 'during' | 'after'>('before');
+  const [showTaskMenu, setShowTaskMenu] = useState(false);
   
   // Simple text input state for session entry  
   const [startDateText, setStartDateText] = useState(() => {
@@ -485,10 +492,60 @@ const TaskWorkModal: React.FC<TaskWorkModalProps> = ({
             <Text style={styles.cancelButton}>Cancel</Text>
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Work on Task</Text>
-          <View style={styles.headerSpacer} />
+          <View style={styles.headerRightSection}>
+            {/* Three-dot menu for task cancellation - only show for pending/in-progress tasks */}
+            {(status === 'pending' || status === 'in_progress') && onCancelTask && (
+              <>
+                <TouchableOpacity 
+                  style={styles.taskMenuButton}
+                  onPress={() => setShowTaskMenu(!showTaskMenu)}
+                >
+                  <Text style={styles.taskMenuText}>⋯</Text>
+                </TouchableOpacity>
+                
+                {/* Menu options */}
+                {showTaskMenu && (
+                  <View style={styles.taskMenu}>
+                    <TouchableOpacity 
+                      style={styles.taskMenuOption}
+                      onPress={() => {
+                        setShowTaskMenu(false);
+                        Alert.alert(
+                          'Cancel Task',
+                          `Are you sure you want to cancel "${taskDescription}"? This action cannot be undone.`,
+                          [
+                            { text: 'No', style: 'cancel' },
+                            { 
+                              text: 'Yes, Cancel Task', 
+                              style: 'destructive', 
+                              onPress: () => {
+                                onCancelTask(jobId, taskId, 'Cancelled by technician');
+                                onClose(); // Close modal after cancellation
+                              }
+                            }
+                          ]
+                        );
+                      }}
+                    >
+                      <Text style={styles.taskMenuOptionText}>🗑️ Cancel Task</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
+              </>
+            )}
+          </View>
         </View>
 
-        <ScrollView style={styles.content}>
+        <ScrollView 
+          style={styles.content}
+          onStartShouldSetResponder={() => {
+            if (showTaskMenu) {
+              setShowTaskMenu(false);
+              return true;
+            }
+            return false;
+          }}
+        >
           {/* Task Description */}
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>📝 Task</Text>
@@ -1046,8 +1103,62 @@ const styles = StyleSheet.create({
     textAlignVertical: 'top',
     minHeight: 80,
   },
-  headerSpacer: {
+  headerRightSection: {
+    position: 'relative',
     width: 60, // Match cancel button width for symmetry
+    alignItems: 'flex-end',
+  },
+  taskMenuButton: {
+    padding: 8,
+    borderRadius: 6,
+    backgroundColor: 'rgba(0, 0, 0, 0.1)',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.1,
+        shadowRadius: 2,
+      },
+      android: {
+        elevation: 2,
+      },
+    }),
+  },
+  taskMenuText: {
+    fontSize: 16,
+    color: Colors.textSecondary,
+    fontWeight: 'bold',
+  },
+  taskMenu: {
+    position: 'absolute',
+    top: 45,
+    right: 0,
+    backgroundColor: Colors.white,
+    borderRadius: 8,
+    paddingVertical: 4,
+    minWidth: 150,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 8,
+      },
+    }),
+    zIndex: 1000,
+  },
+  taskMenuOption: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 0,
+  },
+  taskMenuOptionText: {
+    fontSize: 14,
+    color: Colors.error,
+    fontWeight: '500',
   },
   bottomButtons: {
     flexDirection: 'row',

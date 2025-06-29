@@ -26,7 +26,8 @@ interface AppContextType extends AppState {
   addTask: (jobId: string, description: string, date: string, startTime: string, endTime: string) => string;
   updateTask: (jobId: string, taskId: string, updates: any) => void;
   addPendingTask: (jobId: string, description: string) => void;
-  updateTaskStatus: (jobId: string, taskDescription: string, taskData: any) => void;
+  updateTaskStatus: (jobId: string, taskId: string, taskData: any) => void;
+  cancelTask: (jobId: string, taskId: string, reason?: string) => void;
   
   // Notifications
   addNotification: (userId: string, title: string, message: string, type: any, jobId?: string) => void;
@@ -357,19 +358,37 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     const job = jobs[jobId];
     if (!job) return { isValid: false, message: 'Job not found' };
 
-    // Check if all tasks are completed
-    const incompleteTasks = job.tasks.filter(task => task.status !== 'completed');
-    if (incompleteTasks.length > 0) {
+    // Step 1: Get active (non-cancelled) tasks
+    const activeTasks = job.tasks.filter(task => task.status !== 'cancelled');
+    
+    // Step 2: Block if no active tasks (all cancelled)
+    if (activeTasks.length === 0) {
       return { 
         isValid: false, 
-        message: `${incompleteTasks.length} task(s) are not completed yet. Please complete all tasks first.` 
+        message: 'All tasks cancelled. Please contact manager to cancel this job if no work is needed.' 
+      };
+    }
+    
+    // Step 3: Check if at least 1 active task is completed
+    const completedActiveTasks = activeTasks.filter(task => task.status === 'completed');
+    if (completedActiveTasks.length === 0) {
+      return {
+        isValid: false,
+        message: 'At least one active task must be completed before job completion.'
+      };
+    }
+    
+    // Step 4: Check remaining active tasks
+    const incompleteActiveTasks = activeTasks.filter(task => task.status !== 'completed');
+    if (incompleteActiveTasks.length > 0) {
+      return {
+        isValid: false,
+        message: `${incompleteActiveTasks.length} active task(s) still need completion.`
       };
     }
 
-    // Check if all completed tasks have required photos and sessions
-    const tasksWithMissingData = job.tasks.filter(task => {
-      if (task.status !== 'completed') return false;
-      
+    // Step 5: Validate photos/sessions for completed tasks only
+    const tasksWithMissingData = completedActiveTasks.filter(task => {
       const beforePhotos = task.photos?.filter(p => p.category === 'before') || [];
       const afterPhotos = task.photos?.filter(p => p.category === 'after') || [];
       const completedSessions = task.sessions?.filter(s => !s.isActive) || [];
@@ -384,7 +403,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       };
     }
 
-    return { isValid: true, message: 'All tasks completed successfully!' };
+    return { isValid: true, message: 'All active tasks completed successfully!' };
   };
 
   const completeJob = (jobId: string): boolean => {
@@ -598,14 +617,17 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }
   };
 
-  // Helper function to calculate job status based on tasks
+  // Helper function to calculate job status based on tasks (excluding cancelled tasks)
   const calculateJobStatus = (tasks: any[], currentStatus: JobStatus): JobStatus => {
-    if (!tasks || tasks.length === 0) {
-      return 'Created'; // No tasks = job not started
+    // Filter out cancelled tasks for status calculation
+    const activeTasks = tasks.filter(task => task.status !== 'cancelled');
+    
+    if (!activeTasks || activeTasks.length === 0) {
+      return 'Created'; // No active tasks = revert to created (clean slate)
     }
 
-    const hasInProgressTasks = tasks.some(task => task.status === 'in_progress');
-    const hasCompletedTasks = tasks.some(task => task.status === 'completed');
+    const hasInProgressTasks = activeTasks.some(task => task.status === 'in_progress');
+    const hasCompletedTasks = activeTasks.some(task => task.status === 'completed');
 
     // If already submitted/approved/rejected, don't change status
     if (['Submitted', 'Approved', 'Rejected'].includes(currentStatus)) {
@@ -617,19 +639,19 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       return currentStatus;
     }
 
-    // Determine status based on task progress - but NEVER auto-complete the job
+    // Determine status based on active task progress - but NEVER auto-complete the job
     if (hasInProgressTasks || hasCompletedTasks) {
       return 'In Progress';  // Job stays "In Progress" even if all tasks completed
     } else {
-      return 'Created'; // All tasks are pending
+      return 'Created'; // All active tasks are pending
     }
   };
 
-  const updateTaskStatus = (jobId: string, taskDescription: string, taskData: any) => {
+  const updateTaskStatus = (jobId: string, taskId: string, taskData: any) => {
     setJobs(prev => {
       const currentJob = prev[jobId];
       const updatedTasks = currentJob.tasks.map(task => {
-        if (task.description === taskDescription) {
+        if (task.id === taskId) {
           const now = new Date().toISOString();
           const currentUserId = currentUser?.id || '';
           
@@ -701,6 +723,102 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     });
   };
 
+  // Task Cancellation
+  const cancelTask = (jobId: string, taskId: string, reason?: string) => {
+    const job = jobs[jobId];
+    if (!job) return;
+    
+    // 🚨 RISK CHECK: Block cancellation if job is submitted or later
+    if (['Submitted', 'Approved', 'Rejected'].includes(job.status)) {
+      Alert.alert(
+        'Cannot Cancel Task', 
+        'Tasks cannot be cancelled after job submission. Please contact your manager.',
+        [{ text: 'OK' }]
+      );
+      return;
+    }
+
+    const task = job.tasks.find(t => t.id === taskId);
+    if (!task) return;
+
+    // 🚨 RISK CHECK: Prevent cancelling completed or cancelled tasks
+    if (task.status === 'completed') {
+      Alert.alert(
+        'Cannot Cancel Completed Task', 
+        'Completed tasks cannot be cancelled. Only pending and in-progress tasks can be cancelled.',
+        [{ text: 'OK' }]
+      );
+      return;
+    }
+    
+    if (task.status === 'cancelled') {
+      Alert.alert('Task Already Cancelled', 'This task has already been cancelled.');
+      return;
+    }
+
+    setJobs(prev => {
+      const updatedJob = { ...prev[jobId] };
+      const updatedTasks = updatedJob.tasks.map(t => {
+        if (t.id === taskId) {
+          const now = new Date().toISOString();
+          const currentUserId = currentUser?.id || '';
+          
+          return {
+            ...t,
+            status: 'cancelled' as const,
+            activity: {
+              ...t.activity,
+              cancelledBy: currentUserId,
+              cancelledAt: now,
+              cancelReason: reason || 'No reason provided'
+            }
+          };
+        }
+        return t;
+      });
+
+      // Recalculate job status using updated calculateJobStatus (which handles cancelled tasks)
+      const newJobStatus = calculateJobStatus(updatedTasks, updatedJob.status);
+
+      return {
+        ...prev,
+        [jobId]: {
+          ...updatedJob,
+          tasks: updatedTasks,
+          status: newJobStatus
+        }
+      };
+    });
+
+    // Notify manager and other assigned techs
+    const techName = currentUser?.realName || 'Unknown';
+    const cancelMessage = `${techName} cancelled task "${task.description}"${reason ? `: ${reason}` : ''}`;
+
+    // Notify manager
+    addNotification(
+      job.createdBy,
+      'Task Cancelled',
+      cancelMessage,
+      'task_cancelled',
+      jobId
+    );
+
+    // Notify other assigned techs
+    job.assignedTechs.forEach(techId => {
+      if (techId !== currentUser?.id) {
+        addNotification(
+          techId,
+          'Task Cancelled by Colleague',
+          cancelMessage,
+          'task_cancelled',
+          jobId
+        );
+      }
+    });
+
+    Alert.alert('Task Cancelled', 'Task has been cancelled and team members have been notified.');
+  };
+
   // Notifications
   const addNotification = (userId: string, title: string, message: string, type: any, jobId?: string) => {
     const notificationId = `notif_${Date.now()}_${Math.random()}`;
@@ -763,6 +881,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     updateTask,
     addPendingTask,
     updateTaskStatus,
+    cancelTask,
     addNotification,
     markNotificationRead,
     getJobsForUser,

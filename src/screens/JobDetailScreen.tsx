@@ -23,9 +23,9 @@ interface JobDetailScreenProps {
 }
 
 const JobDetailScreen: React.FC<JobDetailScreenProps> = ({ jobId, onBack }) => {
-  const { currentUser, users, jobs, startJob, validateJobCompletion, completeJob, submitJob, cancelJob, addPendingTask, updateTaskStatus, updateTask } = useApp();
+  const { currentUser, users, jobs, startJob, validateJobCompletion, completeJob, submitJob, cancelJob, addPendingTask, updateTaskStatus, updateTask, cancelTask } = useApp();
   const [showTaskModal, setShowTaskModal] = useState(false);
-  const [selectedTask, setSelectedTask] = useState<string>('');
+  const [selectedTaskId, setSelectedTaskId] = useState<string>('');
   const [showAddTaskModal, setShowAddTaskModal] = useState(false);
   const [newTaskDescription, setNewTaskDescription] = useState('');
   const [showPhotoModal, setShowPhotoModal] = useState(false);
@@ -448,7 +448,7 @@ const JobDetailScreen: React.FC<JobDetailScreenProps> = ({ jobId, onBack }) => {
                   <TouchableOpacity 
                     style={styles.taskMainContent}
                     onPress={() => {
-                      setSelectedTask(task.description);
+                      setSelectedTaskId(task.id);
                       setShowTaskModal(true);
                     }}
                   >
@@ -603,7 +603,7 @@ const JobDetailScreen: React.FC<JobDetailScreenProps> = ({ jobId, onBack }) => {
                     <TouchableOpacity 
                       style={styles.taskMainContent}
                       onPress={() => {
-                        setSelectedTask(task.description);
+                        setSelectedTaskId(task.id);
                         setShowTaskModal(true);
                       }}
                     >
@@ -756,7 +756,7 @@ const JobDetailScreen: React.FC<JobDetailScreenProps> = ({ jobId, onBack }) => {
                       );
                       return;
                     }
-                    setSelectedTask(task.description);
+                    setSelectedTaskId(task.id);
                     setShowTaskModal(true);
                   }}
                 >
@@ -839,15 +839,22 @@ const JobDetailScreen: React.FC<JobDetailScreenProps> = ({ jobId, onBack }) => {
       <TaskWorkModal
         visible={showTaskModal}
         onClose={() => setShowTaskModal(false)}
-        taskDescription={selectedTask}
+        taskDescription={
+          selectedTaskId 
+            ? job.tasks?.find(task => task.id === selectedTaskId)?.description || '' 
+            : ''
+        }
         existingTaskData={
-          selectedTask 
-            ? job.tasks?.find(task => task.description === selectedTask) 
+          selectedTaskId 
+            ? job.tasks?.find(task => task.id === selectedTaskId) 
             : undefined
         }
+        jobId={jobId}
+        taskId={selectedTaskId}
+        onCancelTask={cancelTask}
         onUpdateTask={(taskData: TaskWorkData) => {
-          // Update task status in the job
-          updateTaskStatus(jobId, selectedTask, taskData);
+          // Update task status in the job using task ID
+          updateTaskStatus(jobId, selectedTaskId, taskData);
           setShowTaskModal(false);
         }}
       />
