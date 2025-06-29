@@ -39,15 +39,10 @@ const JobDetailScreen: React.FC<JobDetailScreenProps> = ({ jobId, onBack }) => {
   
   const job = jobs[jobId];
 
-  // Reset ready for submission state when tasks change
+  // Don't auto-set ready for submission - let user manually trigger Complete Job first
   useEffect(() => {
-    if (job && job.status === 'In Progress') {
-      const validation = validateJobCompletion(jobId);
-      setIsReadyForSubmission(validation.isValid);
-    } else {
-      setIsReadyForSubmission(false);
-    }
-  }, [job?.tasks, jobId, validateJobCompletion]);
+    setIsReadyForSubmission(false);
+  }, [job?.tasks, jobId]);
 
   // Helper function to format relative time
   const getRelativeTime = (timestamp: string): string => {
@@ -199,23 +194,18 @@ const JobDetailScreen: React.FC<JobDetailScreenProps> = ({ jobId, onBack }) => {
           return null;
         }
         return {
-          text: isReadyForSubmission ? '📤 Submit Job' : '✅ Complete Job',
+          text: '✅ Complete Job',
           color: Colors.tech,
           onPress: () => {
-            if (isReadyForSubmission) {
-              // Submit the job
+            // Validate all tasks first
+            const validation = validateJobCompletion(jobId);
+            if (validation.isValid) {
+              // Complete the job (changes status to 'Completed')
               if (completeJob(jobId)) {
-                submitJob(jobId);
+                Alert.alert('Job Completed', 'All tasks completed successfully! You can now submit for approval.');
               }
             } else {
-              // Validate all tasks
-              const validation = validateJobCompletion(jobId);
-              if (validation.isValid) {
-                setIsReadyForSubmission(true);
-                Alert.alert('Ready for Submission', 'All tasks completed successfully! Tap Submit Job to send for approval.');
-              } else {
-                Alert.alert('Cannot Complete Job', validation.message);
-              }
+              Alert.alert('Cannot Complete Job', validation.message);
             }
           }
         };
@@ -275,9 +265,15 @@ const JobDetailScreen: React.FC<JobDetailScreenProps> = ({ jobId, onBack }) => {
 
   // Photo modal functions
   const openPhotoModal = (photo: TaskPhoto, allTaskPhotos: TaskPhoto[]) => {
-    const photoIndex = allTaskPhotos.findIndex(p => p.id === photo.id);
+    // Sort photos by category: Before → During → After
+    const sortedPhotos = [...allTaskPhotos].sort((a, b) => {
+      const order = { 'before': 1, 'during': 2, 'after': 3 };
+      return order[a.category] - order[b.category];
+    });
+    
+    const photoIndex = sortedPhotos.findIndex(p => p.id === photo.id);
     setSelectedPhoto(photo);
-    setAllPhotos(allTaskPhotos);
+    setAllPhotos(sortedPhotos);
     setCurrentPhotoIndex(photoIndex);
     setIsEditingDescription(false);
     setEditingDescription('');
@@ -448,12 +444,21 @@ const JobDetailScreen: React.FC<JobDetailScreenProps> = ({ jobId, onBack }) => {
                   <TouchableOpacity 
                     style={styles.taskMainContent}
                     onPress={() => {
-                      setSelectedTaskId(task.id);
-                      setShowTaskModal(true);
+                      const isManager = currentUser?.role === 'boss';
+                      if (isManager) {
+                        // Managers just expand the task card for viewing
+                        toggleTaskExpansion(task.id);
+                      } else {
+                        // Techs open the work modal for editing
+                        setSelectedTaskId(task.id);
+                        setShowTaskModal(true);
+                      }
                     }}
                   >
                     <Text style={styles.taskTitle}>✅ {task.description}</Text>
-                    <Text style={styles.editHint}>Tap to edit</Text>
+                    <Text style={styles.editHint}>
+                      {currentUser?.role === 'boss' ? 'Tap to view details' : 'Tap to edit'}
+                    </Text>
                   </TouchableOpacity>
                   
                   {/* Only show expand button if task has photos */}
@@ -603,12 +608,21 @@ const JobDetailScreen: React.FC<JobDetailScreenProps> = ({ jobId, onBack }) => {
                     <TouchableOpacity 
                       style={styles.taskMainContent}
                       onPress={() => {
-                        setSelectedTaskId(task.id);
-                        setShowTaskModal(true);
+                        const isManager = currentUser?.role === 'boss';
+                        if (isManager) {
+                          // Managers just expand the task card for viewing
+                          toggleTaskExpansion(task.id);
+                        } else {
+                          // Techs open the work modal for editing
+                          setSelectedTaskId(task.id);
+                          setShowTaskModal(true);
+                        }
                       }}
                     >
                       <Text style={styles.taskTitle}>🔧 {task.description}</Text>
-                      <Text style={styles.editHint}>Working - Tap to complete</Text>
+                      <Text style={styles.editHint}>
+                        {currentUser?.role === 'boss' ? 'In Progress - Tap to view details' : 'Working - Tap to complete'}
+                      </Text>
                     </TouchableOpacity>
                     
                     {/* Only show expand button if task has photos */}
@@ -748,6 +762,18 @@ const JobDetailScreen: React.FC<JobDetailScreenProps> = ({ jobId, onBack }) => {
                   key={task.id} 
                   style={styles.pendingTaskButton}
                   onPress={() => {
+                    const isManager = currentUser?.role === 'boss';
+                    
+                    if (isManager) {
+                      // Managers can't work on tasks, show info alert
+                      Alert.alert(
+                        'Manager View',
+                        'This is a pending task that needs to be worked on by assigned technicians.',
+                        [{ text: 'OK' }]
+                      );
+                      return;
+                    }
+                    
                     if (job.status === 'Created') {
                       Alert.alert(
                         'Job Not Started',
@@ -762,7 +788,9 @@ const JobDetailScreen: React.FC<JobDetailScreenProps> = ({ jobId, onBack }) => {
                 >
                   <View style={styles.pendingTaskContent}>
                     <Text style={styles.pendingTaskText}>📝 {task.description}</Text>
-                    <Text style={styles.pendingTaskStatus}>Tap to work</Text>
+                    <Text style={styles.pendingTaskStatus}>
+                      {currentUser?.role === 'boss' ? 'Tap to view' : 'Tap to work'}
+                    </Text>
                     
                     {/* Task Remarks at Bottom of Pending Card */}
                     {task.remarks && task.remarks.trim() !== '' && (
@@ -969,7 +997,7 @@ const JobDetailScreen: React.FC<JobDetailScreenProps> = ({ jobId, onBack }) => {
             <View style={styles.photoModalDescription}>
               <View style={styles.photoModalDescriptionHeader}>
                 <Text style={styles.photoModalDescriptionTitle}>Description</Text>
-                {!isEditingDescription && (
+                {!isEditingDescription && currentUser?.role !== 'boss' && (
                   <TouchableOpacity 
                     style={styles.editDescriptionButton}
                     onPress={startEditingDescription}

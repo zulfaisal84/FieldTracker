@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, ReactNode } from 'react';
 import { Alert } from 'react-native';
 import { User, Job, Notification, AppState, UserRole, JobStatus } from '../types';
+import { mockPhotos } from '../assets/images/mockPhotos';
 
 interface AppContextType extends AppState {
   // Authentication
@@ -76,128 +77,211 @@ const createMockData = () => {
     },
   };
 
-  // Mock Jobs for Demo - Fresh Set
+  // Mock Jobs for Demo - Single Completed Job for Testing
   const jobs = {
-    'job1': {
-      id: 'job1',
-      title: 'KLCC Tower 1 - Machine 1 Electrical Works',
+    'demo_job': {
+      id: 'demo_job',
+      title: 'KLCC Tower 1 - Electrical Maintenance Complete',
       siteLocation: 'KLCC Tower 1, Level 23',
-      description: 'Routine maintenance and inspection of electrical systems in machine room 1. Check wiring, replace faulty components, and update maintenance logs.',
-      status: 'Created' as JobStatus,
+      description: 'Comprehensive electrical system maintenance in machine room 1. All wiring checked, faulty components replaced, and maintenance logs updated.',
+      status: 'Completed' as JobStatus,
       createdBy: 'boss1',
       assignedTechs: ['tech1', 'tech2'],
-      createdAt: '2024-12-26T09:00:00.000Z',
-      tasks: [],
+      createdAt: '2024-12-25T08:00:00.000Z',
+      startedAt: '2024-12-25T09:00:00.000Z',
+      completedAt: '2024-12-25T16:30:00.000Z',
+      tasks: [
+        {
+          id: 'demo_task1',
+          description: 'Electrical panel inspection and component replacement',
+          status: 'completed' as const,
+          sessions: [
+            {
+              id: 'demo_session1',
+              startDate: '25/12/2024',
+              endDate: '25/12/2024',
+              startTime: '09:00 AM',
+              endTime: '12:30 PM',
+              isActive: false,
+            }
+          ],
+          photos: [
+            {
+              id: 'before_1',
+              uri: mockPhotos.photo1,
+              category: 'before',
+              description: 'Electrical panel before maintenance - old components visible',
+              timestamp: '2024-12-25T09:15:00.000Z',
+              fileSize: 1024,
+            },
+            {
+              id: 'after_1',
+              uri: mockPhotos.photo2,
+              category: 'after',
+              description: 'Electrical panel after maintenance - new components installed',
+              timestamp: '2024-12-25T12:25:00.000Z',
+              fileSize: 1024,
+            }
+          ],
+          activity: {
+            startedBy: 'tech1',
+            startedAt: '2024-12-25T09:00:00.000Z',
+            lastSavedBy: 'tech1',
+            lastSavedAt: '2024-12-25T11:15:00.000Z',
+            completedBy: 'tech1',
+            completedAt: '2024-12-25T12:30:00.000Z',
+          },
+          remarks: 'All electrical components inspected and functioning properly. Replaced 3 worn-out breakers.',
+        },
+        {
+          id: 'demo_task2',
+          description: 'Wiring system check and cable management',
+          status: 'completed' as const,
+          sessions: [
+            {
+              id: 'demo_session2',
+              startDate: '25/12/2024',
+              endDate: '25/12/2024',
+              startTime: '01:00 PM',
+              endTime: '04:30 PM',
+              isActive: false,
+            }
+          ],
+          photos: [
+            {
+              id: 'before_2',
+              uri: mockPhotos.photo1,
+              category: 'before',
+              description: 'Cable management before reorganization - tangled wires',
+              timestamp: '2024-12-25T13:10:00.000Z',
+              fileSize: 1024,
+            },
+            {
+              id: 'during_2',
+              uri: mockPhotos.photo3,
+              category: 'during',
+              description: 'Work in progress - organizing cable routes',
+              timestamp: '2024-12-25T15:00:00.000Z',
+              fileSize: 1024,
+            },
+            {
+              id: 'after_2',
+              uri: mockPhotos.photo2,
+              category: 'after',
+              description: 'Cable management completed - clean and organized',
+              timestamp: '2024-12-25T16:25:00.000Z',
+              fileSize: 1024,
+            }
+          ],
+          activity: {
+            startedBy: 'tech2',
+            startedAt: '2024-12-25T13:00:00.000Z',
+            lastEditedBy: 'tech2',
+            lastEditedAt: '2024-12-25T15:30:00.000Z',
+            completedBy: 'tech2',
+            completedAt: '2024-12-25T16:30:00.000Z',
+          },
+          remarks: 'Wiring system fully reorganized. All cables properly labeled and secured according to safety standards.',
+        }
+      ],
     },
-    'job2': {
-      id: 'job2',
-      title: 'Pavilion Mall - HVAC System Repair',
-      siteLocation: 'Pavilion Mall, Basement 2',
-      description: 'Emergency repair of HVAC unit in main server room. System overheating reported by facility management.',
-      status: 'Created' as JobStatus,
-      createdBy: 'boss1',
-      assignedTechs: ['tech1'],
-      createdAt: '2024-12-26T10:30:00.000Z',
-      tasks: [],
-    },
-    'job3': {
-      id: 'job3',
-      title: 'Suria KLCC - Fire Safety System Check',
-      siteLocation: 'Suria KLCC, Multiple Floors',
-      description: 'Monthly fire safety system inspection and testing. Verify all smoke detectors, fire alarms, and emergency exits are functioning properly.',
+    'active_job': {
+      id: 'active_job',
+      title: 'Petronas Tower 2 - HVAC System Maintenance',
+      siteLocation: 'Petronas Tower 2, Level 45 - Main Server Room',
+      description: 'Annual HVAC system maintenance and filter replacements for the main server room. Critical temperature control systems require thorough inspection and calibration.',
       status: 'In Progress' as JobStatus,
       createdBy: 'boss1',
-      assignedTechs: ['tech2'],
-      createdAt: '2024-12-25T10:00:00.000Z',
-      startedAt: '2024-12-26T09:00:00.000Z',
+      assignedTechs: ['tech1', 'tech2'],
+      createdAt: '2024-12-28T08:00:00.000Z',
+      startedAt: '2024-12-28T09:30:00.000Z',
       tasks: [
         {
-          id: 'task1',
-          description: 'Check emergency exit lighting',
+          id: 'active_task1',
+          description: 'HVAC air filter inspection and replacement',
+          status: 'completed' as const,
+          sessions: [
+            {
+              id: 'active_session1',
+              startDate: '28/12/2024',
+              endDate: '28/12/2024',
+              startTime: '09:30 AM',
+              endTime: '11:45 AM',
+              isActive: false,
+            }
+          ],
+          photos: [
+            {
+              id: 'before_filter',
+              uri: mockPhotos.photo1,
+              category: 'before',
+              description: 'Old HVAC filters - heavily clogged with dust and debris',
+              timestamp: '2024-12-28T09:45:00.000Z',
+              fileSize: 1890000,
+            },
+            {
+              id: 'after_filter',
+              uri: mockPhotos.photo2,
+              category: 'after',
+              description: 'New HVAC filters installed - clean and properly secured',
+              timestamp: '2024-12-28T11:30:00.000Z',
+              fileSize: 1650000,
+            }
+          ],
+          activity: {
+            startedBy: 'tech1',
+            startedAt: '2024-12-28T09:30:00.000Z',
+            lastEditedBy: 'tech1',
+            lastEditedAt: '2024-12-28T10:15:00.000Z',
+            lastSavedBy: 'tech1',
+            lastSavedAt: '2024-12-28T11:00:00.000Z',
+            completedBy: 'tech1',
+            completedAt: '2024-12-28T11:45:00.000Z',
+          },
+          remarks: 'All 6 HVAC filters replaced. System airflow restored to optimal levels.',
+        },
+        {
+          id: 'active_task2',
+          description: 'Temperature control system calibration and testing',
+          status: 'in_progress' as const,
+          sessions: [
+            {
+              id: 'active_session2',
+              startDate: '28/12/2024',
+              endDate: '28/12/2024',
+              startTime: '12:00 PM',
+              endTime: '',
+              isActive: true,
+            }
+          ],
+          photos: [
+            {
+              id: 'during_calibration',
+              uri: mockPhotos.photo3,
+              category: 'during',
+              description: 'Calibrating temperature sensors - current readings being verified',
+              timestamp: '2024-12-28T12:30:00.000Z',
+              fileSize: 1245000,
+            }
+          ],
+          activity: {
+            startedBy: 'tech2',
+            startedAt: '2024-12-28T12:00:00.000Z',
+            lastEditedBy: 'tech2',
+            lastEditedAt: '2024-12-28T12:45:00.000Z',
+          },
+          remarks: 'Temperature sensors calibration in progress. Initial readings within acceptable range.',
+        },
+        {
+          id: 'active_task3',
+          description: 'System performance monitoring and documentation',
           status: 'pending' as const,
           sessions: [],
-        },
-        {
-          id: 'task2',
-          description: 'Tested Level 1-5 smoke detectors',
-          status: 'completed' as const,
-          sessions: [
-            {
-              id: 'session1',
-              date: '26/12/2024',
-              startTime: '09:00 AM',
-              endTime: '12:00 PM',
-              isActive: false,
-            }
-          ],
-          beforePhoto: 'mock_photo_3.jpg',
-          afterPhoto: 'mock_photo_4.jpg',
-        },
-        {
-          id: 'task3',
-          description: 'Test fire alarm systems',
-          status: 'pending' as const,
-          sessions: [],
+          photos: [],
+          activity: {},
+          remarks: 'Awaiting completion of calibration before starting performance monitoring.',
         }
       ],
-    },
-    'job4': {
-      id: 'job4',
-      title: 'TRX Tower - Network Infrastructure Setup',
-      siteLocation: 'TRX Tower, IT Floor 45',
-      description: 'Install and configure new network switches and routers for expanded office space. Cable management and testing required.',
-      status: 'Submitted' as JobStatus,
-      createdBy: 'boss1',
-      assignedTechs: ['tech1'],
-      createdAt: '2024-12-24T11:00:00.000Z',
-      startedAt: '2024-12-25T08:00:00.000Z',
-      completedAt: '2024-12-25T17:00:00.000Z',
-      submittedAt: '2024-12-25T17:30:00.000Z',
-      tasks: [
-        {
-          id: 'task4',
-          description: 'Installed network switches',
-          status: 'completed' as const,
-          sessions: [
-            {
-              id: 'session2',
-              date: '25/12/2024',
-              startTime: '08:00 AM',
-              endTime: '12:00 PM',
-              isActive: false,
-            }
-          ],
-          beforePhoto: 'mock_photo_7.jpg',
-          afterPhoto: 'mock_photo_8.jpg',
-        },
-        {
-          id: 'task5',
-          description: 'Configured router settings',
-          status: 'completed' as const,
-          sessions: [
-            {
-              id: 'session3',
-              date: '25/12/2024',
-              startTime: '01:00 PM',
-              endTime: '05:00 PM',
-              isActive: false,
-            }
-          ],
-          beforePhoto: 'mock_photo_9.jpg',
-          afterPhoto: 'mock_photo_10.jpg',
-        }
-      ],
-    },
-    'job5': {
-      id: 'job5',
-      title: 'Menara TM - Server Room Cooling',
-      siteLocation: 'Menara TM, Level 12',
-      description: 'Urgent repair of main server room air conditioning unit. Temperature monitoring shows overheating in critical server racks.',
-      status: 'Created' as JobStatus,
-      createdBy: 'boss1',
-      assignedTechs: ['tech2'],
-      createdAt: '2024-12-26T11:15:00.000Z',
-      tasks: [],
     },
   };
 
