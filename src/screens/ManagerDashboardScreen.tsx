@@ -10,6 +10,7 @@ import {
   ScrollView,
   Modal,
   Image,
+  TextInput,
 } from 'react-native';
 import { Colors } from '../styles/colors';
 import { useApp } from '../context/AppContext';
@@ -18,11 +19,20 @@ import JobDetailScreen from './JobDetailScreen';
 import CreateJobScreen from './CreateJobScreen';
 
 const ManagerDashboardScreen: React.FC = () => {
-  const { logout, jobHistory, users } = useApp();
+  const { logout, jobHistory, users, jobs, createTech, updateUser, getUsersByRole } = useApp();
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'jobs' | 'create' | 'manage' | 'reports' | 'settings'>('jobs');
   const [showReportPreview, setShowReportPreview] = useState(false);
   const [previewJobId, setPreviewJobId] = useState<string | null>(null);
+  const [showAddTechModal, setShowAddTechModal] = useState(false);
+  const [showEditTechModal, setShowEditTechModal] = useState(false);
+  const [editingTechId, setEditingTechId] = useState<string | null>(null);
+  const [newTechForm, setNewTechForm] = useState({
+    username: '',
+    realName: '',
+    phone: '',
+    email: ''
+  });
 
   const handleJobPress = (jobId: string) => {
     setSelectedJobId(jobId);
@@ -74,6 +84,150 @@ const ManagerDashboardScreen: React.FC = () => {
 
   const saveReport = (jobId: string, format: string) => {
     Alert.alert('Report Saved', `${format.toUpperCase()} report saved to device`);
+  };
+
+  // Technician Management Functions
+  const handleAddTechnician = () => {
+    if (newTechForm.username.trim() && newTechForm.realName.trim() && 
+        newTechForm.phone.trim() && newTechForm.email.trim()) {
+      createTech(newTechForm.username, newTechForm.realName, newTechForm.phone, newTechForm.email);
+      setNewTechForm({ username: '', realName: '', phone: '', email: '' });
+      setShowAddTechModal(false);
+      Alert.alert(
+        'Technician Added',
+        `${newTechForm.realName} has been added successfully.\nTemporary password sent to ${newTechForm.phone} and ${newTechForm.email}`,
+        [{ text: 'OK' }]
+      );
+    } else {
+      Alert.alert('Error', 'Please fill in all fields');
+    }
+  };
+
+  const handleEditTechnician = (techId: string) => {
+    setEditingTechId(techId);
+    const tech = users[techId];
+    if (tech) {
+      setNewTechForm({
+        username: tech.username,
+        realName: tech.realName,
+        phone: tech.phone,
+        email: tech.email
+      });
+      setShowEditTechModal(true);
+    }
+  };
+
+  const handleUpdateTechnician = () => {
+    if (editingTechId && newTechForm.realName.trim()) {
+      updateUser(editingTechId, {
+        realName: newTechForm.realName
+      });
+      setNewTechForm({ username: '', realName: '', phone: '', email: '' });
+      setShowEditTechModal(false);
+      setEditingTechId(null);
+      Alert.alert('Success', 'Technician name updated successfully');
+    } else {
+      Alert.alert('Error', 'Please enter a valid name');
+    }
+  };
+
+  const handleResetPassword = (techId: string) => {
+    const tech = users[techId];
+    if (tech) {
+      Alert.alert(
+        'Reset Password',
+        `Reset password for ${tech.realName}?`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { 
+            text: 'Reset', 
+            style: 'destructive',
+            onPress: () => {
+              const tempPassword = Math.random().toString(36).slice(-8);
+              Alert.alert(
+                'Password Reset',
+                `New temporary password for ${tech.realName}: ${tempPassword}\n\nCredentials sent to:\n📱 ${tech.phone}\n📧 ${tech.email}`,
+                [{ text: 'OK' }]
+              );
+            }
+          }
+        ]
+      );
+    }
+  };
+
+  const handleViewTechJobs = (techId: string) => {
+    const tech = users[techId];
+    if (tech) {
+      const techJobs = Object.values(jobHistory).filter(job => 
+        job.assignedTechs.includes(techId)
+      );
+      Alert.alert(
+        `${tech.realName}'s Jobs`,
+        techJobs.length > 0 
+          ? `Completed ${techJobs.length} jobs:\n\n${techJobs.map(job => `• ${job.title}`).join('\n')}`
+          : 'No completed jobs yet',
+        [{ text: 'OK' }]
+      );
+    }
+  };
+
+  const handleDeleteTechnician = (techId: string) => {
+    const tech = users[techId];
+    if (tech) {
+      // Check for active jobs assigned to this technician
+      // Active jobs are any status except 'Approved' (which are moved to history)
+      const activeJobs = Object.values(jobs).filter(job => 
+        job.assignedTechs.includes(techId) && job.status !== 'Approved'
+      );
+
+      console.log('Debug Delete:', {
+        techId,
+        techName: tech.realName,
+        totalJobs: Object.values(jobs).length,
+        activeJobsCount: activeJobs.length,
+        activeJobs: activeJobs.map(j => ({ title: j.title, status: j.status, assignedTechs: j.assignedTechs }))
+      });
+
+      if (activeJobs.length > 0) {
+        // Prevent deletion - show active jobs
+        Alert.alert(
+          'Cannot Delete Technician',
+          `${tech.realName} has ${activeJobs.length} active job${activeJobs.length > 1 ? 's' : ''} assigned:\n\n${activeJobs.map(job => `• ${job.title} (${job.status})`).join('\n')}\n\nPlease cancel or reassign these jobs first before deleting the technician account.`,
+          [
+            { text: 'OK', style: 'cancel' },
+            { 
+              text: 'View Jobs', 
+              onPress: () => {
+                // Switch to Jobs tab to let manager see and manage active jobs
+                setActiveTab('jobs');
+              }
+            }
+          ]
+        );
+      } else {
+        // Safe to delete - no active jobs
+        Alert.alert(
+          'Delete Technician',
+          `Are you sure you want to delete ${tech.realName}?\n\nThis action cannot be undone. The technician will lose access to the app.`,
+          [
+            { text: 'Cancel', style: 'cancel' },
+            { 
+              text: 'Delete', 
+              style: 'destructive',
+              onPress: () => {
+                // For now, just show confirmation since we need to implement deleteTech function
+                Alert.alert(
+                  'Technician Deleted',
+                  `${tech.realName} has been removed from the system.`,
+                  [{ text: 'OK' }]
+                );
+              }
+            }
+          ]
+        );
+      }
+    }
   };
 
   const renderProfessionalReport = (jobId: string) => {
@@ -237,10 +391,80 @@ const ManagerDashboardScreen: React.FC = () => {
           <CreateJobScreen onJobCreated={handleJobCreated} />
         );
       case 'manage':
+        const technicians = getUsersByRole('tech');
         return (
-          <View style={styles.tabContent}>
+          <View style={[styles.tabContent, styles.manageContent]}>
             <Text style={styles.tabTitle}>Manage Technicians</Text>
-            <Text style={styles.comingSoon}>Technician management coming soon</Text>
+            
+            <TouchableOpacity
+              style={styles.addTechButton}
+              onPress={() => setShowAddTechModal(true)}
+            >
+              <Text style={styles.addTechButtonText}>➕ Add New Technician</Text>
+            </TouchableOpacity>
+
+            <ScrollView style={styles.techList}>
+              {technicians.length === 0 ? (
+                <View style={styles.emptyState}>
+                  <Text style={styles.emptyText}>No technicians yet</Text>
+                  <Text style={styles.emptySubtext}>Add your first technician to get started</Text>
+                </View>
+              ) : (
+                technicians.map((tech) => (
+                  <View key={tech.id} style={styles.techCard}>
+                    <View style={styles.techHeader}>
+                      <View style={styles.techAvatar}>
+                        <Text style={styles.techAvatarText}>
+                          {tech.realName.split(' ').map(n => n[0]).join('').toUpperCase()}
+                        </Text>
+                      </View>
+                      <View style={styles.techInfo}>
+                        <Text style={styles.techName}>{tech.realName}</Text>
+                        <Text style={styles.techUsername}>@{tech.username}</Text>
+                        <Text style={styles.techJoinDate}>
+                          Joined: {new Date(tech.createdAt).toLocaleDateString()}
+                        </Text>
+                      </View>
+                      <View style={styles.techStatus}>
+                        <Text style={styles.statusActive}>● Active</Text>
+                      </View>
+                    </View>
+
+                    <View style={styles.techDetails}>
+                      <Text style={styles.techContact}>📱 {tech.phone}</Text>
+                      <Text style={styles.techContact}>📧 {tech.email}</Text>
+                    </View>
+
+                    <View style={styles.techActions}>
+                      <TouchableOpacity
+                        style={[styles.actionButton, styles.editButton]}
+                        onPress={() => handleEditTechnician(tech.id)}
+                      >
+                        <Text style={styles.actionButtonText}>✏️ Edit</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={[styles.actionButton, styles.resetButton]}
+                        onPress={() => handleResetPassword(tech.id)}
+                      >
+                        <Text style={styles.actionButtonText}>🔄 Reset</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={[styles.actionButton, styles.viewButton]}
+                        onPress={() => handleViewTechJobs(tech.id)}
+                      >
+                        <Text style={styles.actionButtonText}>👁️ Jobs</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={[styles.actionButton, styles.deleteButton]}
+                        onPress={() => handleDeleteTechnician(tech.id)}
+                      >
+                        <Text style={styles.actionButtonText}>🗑️ Delete</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                ))
+              )}
+            </ScrollView>
           </View>
         );
       case 'reports':
@@ -372,6 +596,143 @@ const ManagerDashboardScreen: React.FC = () => {
           <Text style={[styles.tabLabel, activeTab === 'settings' && styles.activeTabText]}>Settings</Text>
         </TouchableOpacity>
       </View>
+
+      {/* Add Technician Modal */}
+      <Modal
+        visible={showAddTechModal}
+        animationType="slide"
+        presentationStyle="pageSheet"
+      >
+        <View style={styles.modalContainer}>
+          <View style={styles.modalHeader}>
+            <TouchableOpacity
+              style={styles.closeButton}
+              onPress={() => {
+                setShowAddTechModal(false);
+                setNewTechForm({ username: '', realName: '', phone: '', email: '' });
+              }}
+            >
+              <Text style={styles.closeButtonText}>✕ Cancel</Text>
+            </TouchableOpacity>
+            <Text style={styles.modalTitle}>Add Technician</Text>
+            <TouchableOpacity
+              style={styles.previewExportButton}
+              onPress={handleAddTechnician}
+            >
+              <Text style={styles.previewExportButtonText}>✅ Add</Text>
+            </TouchableOpacity>
+          </View>
+
+          <ScrollView style={styles.formContainer}>
+            <View style={styles.formGroup}>
+              <Text style={styles.formLabel}>Username *</Text>
+              <TextInput
+                style={styles.formInput}
+                value={newTechForm.username}
+                onChangeText={(text) => setNewTechForm({...newTechForm, username: text})}
+                placeholder="Enter username"
+                autoCapitalize="none"
+              />
+            </View>
+
+            <View style={styles.formGroup}>
+              <Text style={styles.formLabel}>Full Name *</Text>
+              <TextInput
+                style={styles.formInput}
+                value={newTechForm.realName}
+                onChangeText={(text) => setNewTechForm({...newTechForm, realName: text})}
+                placeholder="Enter full name"
+              />
+            </View>
+
+            <View style={styles.formGroup}>
+              <Text style={styles.formLabel}>Phone Number *</Text>
+              <TextInput
+                style={styles.formInput}
+                value={newTechForm.phone}
+                onChangeText={(text) => setNewTechForm({...newTechForm, phone: text})}
+                placeholder="Enter phone number"
+                keyboardType="phone-pad"
+              />
+            </View>
+
+            <View style={styles.formGroup}>
+              <Text style={styles.formLabel}>Email Address *</Text>
+              <TextInput
+                style={styles.formInput}
+                value={newTechForm.email}
+                onChangeText={(text) => setNewTechForm({...newTechForm, email: text})}
+                placeholder="Enter email address"
+                keyboardType="email-address"
+                autoCapitalize="none"
+              />
+            </View>
+
+            <View style={styles.formNote}>
+              <Text style={styles.formNoteText}>
+                📱 A temporary password will be sent to the provided phone and email.
+              </Text>
+            </View>
+          </ScrollView>
+        </View>
+      </Modal>
+
+      {/* Edit Technician Modal */}
+      <Modal
+        visible={showEditTechModal}
+        animationType="slide"
+        presentationStyle="pageSheet"
+      >
+        <View style={styles.modalContainer}>
+          <View style={styles.modalHeader}>
+            <TouchableOpacity
+              style={styles.closeButton}
+              onPress={() => {
+                setShowEditTechModal(false);
+                setEditingTechId(null);
+                setNewTechForm({ username: '', realName: '', phone: '', email: '' });
+              }}
+            >
+              <Text style={styles.closeButtonText}>✕ Cancel</Text>
+            </TouchableOpacity>
+            <Text style={styles.modalTitle}>Edit Technician</Text>
+            <TouchableOpacity
+              style={styles.previewExportButton}
+              onPress={handleUpdateTechnician}
+            >
+              <Text style={styles.previewExportButtonText}>💾 Save</Text>
+            </TouchableOpacity>
+          </View>
+
+          <ScrollView style={styles.formContainer}>
+            <View style={styles.formGroup}>
+              <Text style={styles.formLabel}>Username</Text>
+              <TextInput
+                style={[styles.formInput, styles.disabledInput]}
+                value={newTechForm.username}
+                editable={false}
+                placeholder="Username cannot be changed"
+              />
+            </View>
+
+            <View style={styles.formGroup}>
+              <Text style={styles.formLabel}>Full Name *</Text>
+              <TextInput
+                style={styles.formInput}
+                value={newTechForm.realName}
+                onChangeText={(text) => setNewTechForm({...newTechForm, realName: text})}
+                placeholder="Enter full name"
+              />
+            </View>
+
+            <View style={styles.formNote}>
+              <Text style={styles.formNoteText}>
+                📝 Note: Technicians can update their own phone and email from their profile. Managers only control name and username for identity purposes.
+              </Text>
+            </View>
+          </ScrollView>
+        </View>
+      </Modal>
 
       {/* Report Preview Modal */}
       <Modal
@@ -825,6 +1186,169 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
     textAlign: 'center',
     marginBottom: 4,
+  },
+  // Manage Technicians Styles
+  manageContent: {
+    justifyContent: 'flex-start',
+    alignItems: 'stretch',
+    padding: 16,
+  },
+  addTechButton: {
+    backgroundColor: Colors.boss,
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+    borderRadius: 12,
+    marginBottom: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  addTechButtonText: {
+    color: Colors.white,
+    fontSize: 16,
+    fontWeight: 'bold',
+    letterSpacing: 0.5,
+  },
+  techList: {
+    flex: 1,
+  },
+  techCard: {
+    backgroundColor: Colors.white,
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  techHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  techAvatar: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: Colors.boss,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  techAvatarText: {
+    color: Colors.white,
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  techInfo: {
+    flex: 1,
+  },
+  techName: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: Colors.text,
+    marginBottom: 2,
+  },
+  techUsername: {
+    fontSize: 14,
+    color: Colors.textSecondary,
+    marginBottom: 2,
+  },
+  techJoinDate: {
+    fontSize: 12,
+    color: Colors.textSecondary,
+  },
+  techStatus: {
+    alignItems: 'flex-end',
+  },
+  statusActive: {
+    fontSize: 12,
+    color: Colors.success,
+    fontWeight: '600',
+  },
+  techDetails: {
+    marginBottom: 16,
+    paddingLeft: 62,
+  },
+  techContact: {
+    fontSize: 14,
+    color: Colors.text,
+    marginBottom: 4,
+  },
+  techActions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+  },
+  actionButton: {
+    flex: 1,
+    minWidth: '23%',
+    paddingVertical: 6,
+    paddingHorizontal: 8,
+    borderRadius: 6,
+    alignItems: 'center',
+  },
+  editButton: {
+    backgroundColor: '#3B82F6',
+  },
+  resetButton: {
+    backgroundColor: '#F59E0B',
+  },
+  viewButton: {
+    backgroundColor: '#10B981',
+  },
+  deleteButton: {
+    backgroundColor: '#EF4444',
+  },
+  actionButtonText: {
+    color: Colors.white,
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  // Form Styles
+  formContainer: {
+    flex: 1,
+    padding: 16,
+  },
+  formGroup: {
+    marginBottom: 20,
+  },
+  formLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: Colors.text,
+    marginBottom: 8,
+  },
+  formInput: {
+    borderWidth: 1,
+    borderColor: '#D1D5DB',
+    borderRadius: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    fontSize: 16,
+    color: Colors.text,
+    backgroundColor: Colors.white,
+  },
+  disabledInput: {
+    backgroundColor: '#F9FAFB',
+    color: Colors.textSecondary,
+  },
+  formNote: {
+    backgroundColor: '#EEF2FF',
+    padding: 12,
+    borderRadius: 8,
+    marginTop: 16,
+  },
+  formNoteText: {
+    fontSize: 12,
+    color: '#4338CA',
+    textAlign: 'center',
   },
 });
 

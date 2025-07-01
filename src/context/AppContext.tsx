@@ -73,7 +73,7 @@ const createMockData = () => {
       phone: '+1234567892',
       email: 'sarah@company.com',
       createdAt: '2024-01-03',
-      isFirstLogin: false,
+      isFirstLogin: true,
     },
   };
 
